@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统计总览 · TaskFlow 任务管理</title>
+<style>
+  :root {
+    --brand: #0E7C86;
+    --brand-tint: #E3F2F3;
+    --ink: #12242E;
+    --paper: #F6F7F9;
+    --text-main: #1F2D3D;
+    --text-sub: #5E6D82;
+    --text-aux: #8A97A8;
+    --border: #D8DEE6;
+    --fill-light: #E8ECF1;
+    --st-todo: #8A97A8;
+    --st-doing: #0E7C86;
+    --st-review: #D9822B;
+    --st-done: #2F9E6E;
+    --st-archived: #C3CBD4;
+    --danger: #C8493F;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: var(--text-main);
+    background: var(--paper);
+    min-width: 1280px;
+    font-variant-numeric: tabular-nums;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* ============ 侧边栏 ============ */
+  .sidebar {
+    width: 232px;
+    flex: 0 0 232px;
+    background: var(--ink);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .brand {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .brand-logo {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--brand);
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 28px;
+  }
+  .brand-name { color: #FFFFFF; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }
+  .brand-sub { color: rgba(255,255,255,0.45); font-size: 12px; font-weight: 400; margin-left: 2px; }
+
+  .nav { padding: 12px 0; flex: 1; }
+  .nav-group-label {
+    padding: 12px 20px 6px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+  }
+  .nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 40px;
+    padding: 0 20px;
+    color: rgba(255,255,255,0.72);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .nav-item svg { flex: 0 0 16px; opacity: 0.85; }
+  .nav-item:hover { color: #FFFFFF; background: rgba(255,255,255,0.04); }
+  .nav-item.active {
+    color: #FFFFFF;
+    background: rgba(14,124,134,0.15);
+  }
+  .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--brand);
+  }
+  .nav-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: var(--danger);
+    color: #FFFFFF;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: #FFFFFF;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 32px;
+  }
+  .user-name { color: #FFFFFF; font-size: 13px; line-height: 18px; }
+  .user-role { color: rgba(255,255,255,0.45); font-size: 12px; line-height: 16px; }
+
+  /* ============ 主区 ============ */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    height: 56px;
+    flex: 0 0 56px;
+    background: #FFFFFF;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+  }
+  .crumb { font-size: 14px; color: var(--text-aux); }
+  .crumb .sep { margin: 0 8px; color: var(--text-aux); }
+  .crumb .cur { color: var(--text-main); font-weight: 500; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 220px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #FFFFFF;
+    color: var(--text-aux);
+  }
+  .search input {
+    border: none; outline: none;
+    font-size: 13px;
+    width: 100%;
+    color: var(--text-main);
+    font-family: inherit;
+  }
+  .search input::placeholder { color: var(--text-aux); }
+  .bell {
+    position: relative;
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-sub);
+    cursor: pointer;
+  }
+  .bell:hover { background: var(--fill-light); }
+  .bell-badge {
+    position: absolute;
+    top: 2px; right: 0;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--danger);
+    color: #FFFFFF;
+    font-size: 10px;
+    line-height: 15px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .topbar-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #FFFFFF;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ============ 内容区 ============ */
+  .content { padding: 24px; }
+
+  .page-head { display: flex; align-items: center; }
+  .page-title { font-size: 20px; font-weight: 600; color: var(--text-main); }
+  .segment {
+    margin-left: auto;
+    display: flex;
+    background: var(--fill-light);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .segment button {
+    border: none;
+    background: transparent;
+    height: 28px;
+    padding: 0 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-sub);
+    cursor: pointer;
+  }
+  .segment button.on {
+    background: var(--brand);
+    color: #FFFFFF;
+    font-weight: 500;
+  }
+  .range-note {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-aux);
+  }
+
+  /* KPI 卡片 */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .kpi-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 108px;
+    display: flex;
+    flex-direction: column;
+  }
+  .kpi-name { font-size: 12px; color: var(--text-sub); }
+  .kpi-value {
+    margin-top: 8px;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 34px;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-value .unit { font-size: 14px; font-weight: 500; margin-left: 2px; }
+  .kpi-value.danger { color: var(--danger); }
+  .kpi-value.good { color: var(--st-done); }
+  .kpi-note {
+    margin-top: auto;
+    padding-top: 8px;
+    font-size: 12px;
+    color: var(--text-aux);
+    line-height: 18px;
+  }
+
+  /* 图表栅格 */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .chart-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .chart-head {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .chart-title { font-size: 16px; font-weight: 600; color: var(--text-main); }
+  .chart-legend { margin-left: auto; display: flex; gap: 16px; }
+  .chart-legend .lg {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-sub);
+  }
+  .lg-line {
+    width: 16px; height: 0;
+    border-top: 2px solid var(--brand);
+    position: relative;
+  }
+  .lg-line::after {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--brand);
+    transform: translate(-50%, -50%);
+  }
+  .lg-line.green { border-top-color: var(--st-done); }
+  .lg-line.green::after { background: var(--st-done); }
+
+  /* 环形图布局 */
+  .donut-wrap { display: flex; align-items: center; gap: 8px; }
+  .donut-svg-box { position: relative; width: 220px; height: 220px; flex: 0 0 220px; }
+  .donut-center {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .donut-center .big {
+    font-size: 30px; font-weight: 600;
+    color: var(--text-main);
+    line-height: 36px;
+    font-variant-numeric: tabular-nums;
+  }
+  .donut-center .small { font-size: 12px; color: var(--text-aux); margin-top: 2px; }
+  .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .dl-item {
+    display: flex; align-items: center;
+    font-size: 13px;
+  }
+  .dl-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+    margin-right: 8px;
+  }
+  .dl-name { color: var(--text-main); width: 56px; }
+  .dl-count {
+    color: var(--text-sub);
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-pct {
+    color: var(--text-aux);
+    width: 48px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 横向条形（纯 CSS） */
+  .bars { display: flex; flex-direction: column; gap: 14px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-label {
+    width: 56px;
+    flex: 0 0 56px;
+    font-size: 13px;
+    color: var(--text-sub);
+    text-align: right;
+  }
+  .bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--fill-light);
+    border-radius: 4px;
+    position: relative;
+  }
+  .bar-fill {
+    height: 20px;
+    border-radius: 4px;
+    min-width: 2px;
+  }
+  .bar-val {
+    width: 32px;
+    flex: 0 0 32px;
+    font-size: 13px;
+    color: var(--text-main);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .chart-note {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--text-aux);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ 侧边栏 ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-logo">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8.5L6.5 12L13 4.5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="brand-name">TaskFlow</span>
+      <span class="brand-sub">任务管理</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group-label">工作台</div>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="2.5" width="12" height="2.4" rx="1" fill="currentColor"/>
+          <rect x="2" y="6.8" width="12" height="2.4" rx="1" fill="currentColor"/>
+          <rect x="2" y="11.1" width="12" height="2.4" rx="1" fill="currentColor"/>
+        </svg>
+        任务列表
+        <span class="nav-badge">12</span>
+      </a>
+      <a class="nav-item active" href="#">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="9" width="3.4" height="5" rx="0.8" fill="currentColor"/>
+          <rect x="6.3" y="5.5" width="3.4" height="8.5" rx="0.8" fill="currentColor"/>
+          <rect x="10.6" y="2" width="3.4" height="12" rx="0.8" fill="currentColor"/>
+        </svg>
+        统计总览
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M2 6.5h12" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        日程
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 2a4.2 4.2 0 0 0-4.2 4.2v2.6L2.6 11a.6.6 0 0 0 .5 1h9.8a.6.6 0 0 0 .5-1l-1.2-2.2V6.2A4.2 4.2 0 0 0 8 2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M6.4 13.6a1.8 1.8 0 0 0 3.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        通知中心
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1.8 13 3.6v3.9c0 3.1-2.1 5.4-5 6.7-2.9-1.3-5-3.6-5-6.7V3.6L8 1.8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M5.8 7.8 7.4 9.4l2.9-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        权限管理
+      </a>
+    </nav>
+
+    <div class="user-card">
+      <span class="avatar">张</span>
+      <span>
+        <div class="user-name">张伟</div>
+        <div class="user-role">任务管理员</div>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <div class="main">
+
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <div class="crumb">数据<span class="sep">/</span><span class="cur">统计总览</span></div>
+      <div class="topbar-right">
+        <label class="search">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6.2" cy="6.2" r="4.4" stroke="currentColor" stroke-width="1.4"/>
+            <path d="m9.6 9.6 2.6 2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <input type="text" placeholder="搜索任务 / 成员">
+        </label>
+        <span class="bell">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
+            <path d="M8 2a4.2 4.2 0 0 0-4.2 4.2v2.6L2.6 11a.6.6 0 0 0 .5 1h9.8a.6.6 0 0 0 .5-1l-1.2-2.2V6.2A4.2 4.2 0 0 0 8 2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M6.4 13.6a1.8 1.8 0 0 0 3.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="bell-badge">5</span>
+        </span>
+        <span class="topbar-avatar">张</span>
+      </div>
+    </header>
+
+    <!-- 内容区 -->
+    <main class="content">
+
+      <div class="page-head">
+        <h1 class="page-title">统计总览</h1>
+        <div class="segment">
+          <button type="button">历史累计</button>
+          <button type="button" class="on">本月</button>
+          <button type="button">本周</button>
+          <button type="button">自定义</button>
+        </div>
+      </div>
+      <div class="range-note">统计区间：2026-09-01 至 2026-09-05 · 以任务创建时间为准 · 仅含顶层任务</div>
+
+      <!-- KPI 卡片行 -->
+      <section class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-name">任务总数</div>
+          <div class="kpi-value">120</div>
+          <div class="kpi-note">已完成 80 · 未完成 40</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-name">待办 / 进行中</div>
+          <div class="kpi-value">35</div>
+          <div class="kpi-note">待办 15 · 进行中 20</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-name">已逾期</div>
+          <div class="kpi-value danger">8</div>
+          <div class="kpi-note">占未完成任务 20.0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-name">紧急任务（P0）</div>
+          <div class="kpi-value">3</div>
+          <div class="kpi-note">占总数 2.5%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-name">平均完成时长</div>
+          <div class="kpi-value">36.5<span class="unit">h</span></div>
+          <div class="kpi-note">按完成任务的更新时间-创建时间</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-name">按时完成率</div>
+          <div class="kpi-value good">86<span class="unit">%</span></div>
+          <div class="kpi-note">按时完成 69 / 已完成 80</div>
+        </div>
+      </section>
+
+      <!-- 图表 2×2 栅格 -->
+      <section class="chart-grid">
+
+        <!-- a) 任务趋势 -->
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">任务趋势</span>
+            <div class="chart-legend">
+              <span class="lg"><span class="lg-line"></span>新建</span>
+              <span class="lg"><span class="lg-line green"></span>完成</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 520 240" width="100%" height="240" role="img" aria-label="任务趋势双折线图">
+            <!-- 网格线 + Y 轴刻度 -->
+            <g stroke="#E8ECF1" stroke-width="1">
+              <line x1="36" y1="212" x2="504" y2="212"/>
+              <line x1="36" y1="146.7" x2="504" y2="146.7"/>
+              <line x1="36" y1="81.3" x2="504" y2="81.3"/>
+              <line x1="36" y1="16" x2="504" y2="16"/>
+            </g>
+            <g fill="#8A97A8" font-size="11" text-anchor="end" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+              <text x="28" y="215.5">0</text>
+              <text x="28" y="150.2">10</text>
+              <text x="28" y="84.8">20</text>
+              <text x="28" y="19.5">30</text>
+            </g>
+            <!-- X 轴标签 -->
+            <g fill="#8A97A8" font-size="11" text-anchor="middle" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+              <text x="36" y="230">09-01</text>
+              <text x="153" y="230">09-02</text>
+              <text x="270" y="230">09-03</text>
+              <text x="387" y="230">09-04</text>
+              <text x="504" y="230">09-05</text>
+            </g>
+            <!-- 新建折线（青碧） -->
+            <polyline points="36,55.2 153,29.1 270,68.3 387,42.1 504,81.3"
+              fill="none" stroke="#0E7C86" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <g fill="#FFFFFF" stroke="#0E7C86" stroke-width="2">
+              <circle cx="36" cy="55.2" r="3.5"/>
+              <circle cx="153" cy="29.1" r="3.5"/>
+              <circle cx="270" cy="68.3" r="3.5"/>
+              <circle cx="387" cy="42.1" r="3.5"/>
+              <circle cx="504" cy="81.3" r="3.5"/>
+            </g>
+            <!-- 完成折线（松绿） -->
+            <polyline points="36,120.5 153,94.4 270,114 387,100.9 504,107.5"
+              fill="none" stroke="#2F9E6E" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <g fill="#FFFFFF" stroke="#2F9E6E" stroke-width="2">
+              <circle cx="36" cy="120.5" r="3.5"/>
+              <circle cx="153" cy="94.4" r="3.5"/>
+              <circle cx="270" cy="114" r="3.5"/>
+              <circle cx="387" cy="100.9" r="3.5"/>
+              <circle cx="504" cy="107.5" r="3.5"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- b) 状态分布 环形图 -->
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">状态分布</span>
+          </div>
+          <div class="donut-wrap">
+            <div class="donut-svg-box">
+              <svg viewBox="0 0 220 220" width="220" height="220" role="img" aria-label="状态分布环形图">
+                <!-- 底色环 -->
+                <circle cx="110" cy="110" r="70" fill="none" stroke="#E8ECF1" stroke-width="26"/>
+                <!-- 五段（周长 439.82，从顶部起顺时针） -->
+                <g transform="rotate(-90 110 110)">
+                  <!-- 待办 15 → 54.98 -->
+                  <circle cx="110" cy="110" r="70" fill="none" stroke="#8A97A8" stroke-width="26"
+                    stroke-dasharray="52.98 386.84" stroke-dashoffset="0"/>
+                  <!-- 进行中 20 → 73.30 -->
+                  <circle cx="110" cy="110" r="70" fill="none" stroke="#0E7C86" stroke-width="26"
+                    stroke-dasharray="71.30 368.52" stroke-dashoffset="-54.98"/>
+                  <!-- 待验收 5 → 18.33 -->
+                  <circle cx="110" cy="110" r="70" fill="none" stroke="#D9822B" stroke-width="26"
+                    stroke-dasharray="16.33 423.49" stroke-dashoffset="-128.28"/>
+                  <!-- 已完成 60 → 219.91 -->
+                  <circle cx="110" cy="110" r="70" fill="none" stroke="#2F9E6E" stroke-width="26"
+                    stroke-dasharray="217.91 221.91" stroke-dashoffset="-146.61"/>
+                  <!-- 已归档 20 → 73.30 -->
+                  <circle cx="110" cy="110" r="70" fill="none" stroke="#C3CBD4" stroke-width="26"
+                    stroke-dasharray="71.30 368.52" stroke-dashoffset="-366.52"/>
+                </g>
+              </svg>
+              <div class="donut-center">
+                <div class="big">120</div>
+                <div class="small">总数</div>
+              </div>
+            </div>
+            <div class="donut-legend">
+              <div class="dl-item">
+                <span class="dl-dot" style="background:#8A97A8"></span>
+                <span class="dl-name">待办</span>
+                <span class="dl-count">15</span>
+                <span class="dl-pct">12.5%</span>
+              </div>
+              <div class="dl-item">
+                <span class="dl-dot" style="background:#0E7C86"></span>
+                <span class="dl-name">进行中</span>
+                <span class="dl-count">20</span>
+                <span class="dl-pct">16.7%</span>
+              </div>
+              <div class="dl-item">
+                <span class="dl-dot" style="background:#D9822B"></span>
+                <span class="dl-name">待验收</span>
+                <span class="dl-count">5</span>
+                <span class="dl-pct">4.2%</span>
+              </div>
+              <div class="dl-item">
+                <span class="dl-dot" style="background:#2F9E6E"></span>
+                <span class="dl-name">已完成</span>
+                <span class="dl-count">60</span>
+                <span class="dl-pct">50.0%</span>
+              </div>
+              <div class="dl-item">
+                <span class="dl-dot" style="background:#C3CBD4"></span>
+                <span class="dl-name">已归档</span>
+                <span class="dl-count">20</span>
+                <span class="dl-pct">16.7%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- c) 优先级分布 横向条形 -->
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">优先级分布</span>
+          </div>
+          <div class="bars">
+            <div class="bar-row">
+              <span class="bar-label">P0 紧急</span>
+              <div class="bar-track"><div class="bar-fill" style="width:4.5%;background:#C8493F"></div></div>
+              <span class="bar-val">3</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">P1 高</span>
+              <div class="bar-track"><div class="bar-fill" style="width:27.3%;background:#D9822B"></div></div>
+              <span class="bar-val">18</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">P2 中</span>
+              <div class="bar-track"><div class="bar-fill" style="width:100%;background:#0E7C86"></div></div>
+              <span class="bar-val">66</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">P3 低</span>
+              <div class="bar-track"><div class="bar-fill" style="width:50%;background:#8A97A8"></div></div>
+              <span class="bar-val">33</span>
+            </div>
+          </div>
+          <div class="chart-note">按优先级统计全部 120 个顶层任务</div>
+        </div>
+
+        <!-- d) 人员负载 横向条形 -->
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-title">人员负载</span>
+          </div>
+          <div class="bars">
+            <div class="bar-row">
+              <span class="bar-label">王强</span>
+              <div class="bar-track"><div class="bar-fill" style="width:100%;background:#0E7C86"></div></div>
+              <span class="bar-val">12</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">李娜</span>
+              <div class="bar-track"><div class="bar-fill" style="width:75%;background:#0E7C86"></div></div>
+              <span class="bar-val">9</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">张伟</span>
+              <div class="bar-track"><div class="bar-fill" style="width:58.3%;background:#0E7C86"></div></div>
+              <span class="bar-val">7</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">赵敏</span>
+              <div class="bar-track"><div class="bar-fill" style="width:41.7%;background:#0E7C86"></div></div>
+              <span class="bar-val">5</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">陈晨</span>
+              <div class="bar-track"><div class="bar-fill" style="width:25%;background:#0E7C86"></div></div>
+              <span class="bar-val">3</span>
+            </div>
+          </div>
+          <div class="chart-note">不含系统管理员</div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>

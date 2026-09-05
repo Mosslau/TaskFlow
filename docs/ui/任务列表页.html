@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>任务列表 - TaskFlow 任务管理</title>
+<style>
+  /* ========== 设计令牌 ==========
+     品牌主色  #0E7C86 / hover #0A5F67 / 浅底 #E3F2F3
+     墨青      #12242E   纸灰 #F6F7F9
+     主文案 #1F2D3D / 次要 #5E6D82 / 辅助 #8A97A8
+     边框 #D8DEE6 / 表头底 #E8ECF1
+     危险 #C8493F / 预警 #D9822B / 成功 #2F9E6E
+  ================================== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: #1F2D3D;
+    background: #F6F7F9;
+    min-width: 1280px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ========== 整体布局 ========== */
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ========== 侧边栏 ========== */
+  .sidebar {
+    width: 232px;
+    flex: 0 0 232px;
+    background: #12242E;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .brand {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .brand-logo {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    background: #0E7C86;
+    display: flex; align-items: center; justify-content: center;
+    color: #FFFFFF; font-size: 13px; font-weight: 700;
+  }
+  .brand-text { color: #FFFFFF; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+  .brand-text small { display: block; font-size: 11px; font-weight: 400; color: #8A97A8; margin-top: 2px; }
+
+  .nav { flex: 1; padding: 16px 0; }
+  .nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 16px 0 24px;
+    color: #8A97A8;
+    font-size: 14px;
+    cursor: pointer;
+    gap: 10px;
+  }
+  .nav-item:hover { color: #C3CBD4; }
+  .nav-item .icon { width: 16px; text-align: center; font-size: 12px; }
+  .nav-item.active {
+    color: #FFFFFF;
+    background: rgba(14,124,134,0.15);
+  }
+  .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: #0E7C86;
+  }
+  .nav-badge {
+    margin-left: auto;
+    min-width: 20px; height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
+    background: #C8493F;
+    color: #FFFFFF;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .avatar-circle {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #0E7C86;
+    color: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+    flex: 0 0 36px;
+  }
+  .user-info .name { color: #FFFFFF; font-size: 14px; }
+  .user-info .role { color: #8A97A8; font-size: 12px; margin-top: 2px; }
+
+  /* ========== 主区域 ========== */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  /* 顶栏 */
+  .topbar {
+    height: 56px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #D8DEE6;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    flex: 0 0 56px;
+  }
+  .breadcrumb { font-size: 14px; color: #8A97A8; }
+  .breadcrumb .sep { margin: 0 8px; color: #C3CBD4; }
+  .breadcrumb .current { color: #1F2D3D; font-weight: 500; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .global-search {
+    width: 220px; height: 32px;
+    border: 1px solid #D8DEE6;
+    border-radius: 6px;
+    padding: 0 12px 0 30px;
+    font-size: 13px;
+    color: #1F2D3D;
+    background: #F6F7F9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Ccircle cx='6' cy='6' r='4.5' fill='none' stroke='%238A97A8' stroke-width='1.5'/%3E%3Cline x1='9.5' y1='9.5' x2='13' y2='13' stroke='%238A97A8' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat 10px center;
+    outline: none;
+  }
+  .global-search::placeholder { color: #8A97A8; }
+  .global-search:focus { border-color: #0E7C86; background-color: #FFFFFF; }
+  .bell {
+    position: relative;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: #5E6D82;
+    font-size: 16px;
+  }
+  .bell .dot-badge {
+    position: absolute;
+    top: 0; right: -2px;
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #C8493F;
+    color: #FFFFFF;
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .topbar-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #0E7C86;
+    color: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* 内容区 */
+  .content { padding: 24px; }
+
+  .page-head { display: flex; align-items: flex-end; margin-bottom: 16px; }
+  .page-title h1 { font-size: 20px; font-weight: 600; color: #12242E; }
+  .page-title p { font-size: 13px; color: #8A97A8; margin-top: 6px; }
+  .page-actions { margin-left: auto; display: flex; gap: 12px; }
+  .btn {
+    height: 32px;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-family: inherit;
+  }
+  .btn-primary { background: #0E7C86; color: #FFFFFF; }
+  .btn-primary:hover { background: #0A5F67; }
+  .btn-default { background: #FFFFFF; color: #1F2D3D; border-color: #D8DEE6; }
+  .btn-default:hover { color: #0E7C86; border-color: #0E7C86; }
+
+  /* 白色容器 */
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #D8DEE6;
+    border-radius: 8px;
+  }
+
+  /* 筛选栏 */
+  .filter-bar { padding: 16px; margin-bottom: 16px; }
+  .filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .filter-row + .filter-row { margin-top: 12px; }
+  .kw-input {
+    width: 240px; height: 32px;
+    border: 1px solid #D8DEE6;
+    border-radius: 6px;
+    padding: 0 12px;
+    font-size: 13px;
+    color: #1F2D3D;
+    outline: none;
+    font-family: inherit;
+  }
+  .kw-input::placeholder { color: #8A97A8; }
+  .kw-input:focus { border-color: #0E7C86; }
+  .select-fake {
+    height: 32px;
+    min-width: 128px;
+    border: 1px solid #D8DEE6;
+    border-radius: 6px;
+    background: #FFFFFF;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 13px;
+    color: #5E6D82;
+    cursor: pointer;
+    gap: 8px;
+  }
+  .select-fake .label { flex: 1; }
+  .select-fake .caret { color: #8A97A8; font-size: 10px; }
+  .select-fake:hover { border-color: #0E7C86; }
+  .filter-reset { font-size: 13px; color: #0E7C86; cursor: pointer; margin-left: 4px; }
+  .filter-reset:hover { color: #0A5F67; }
+
+  /* 分段控件 */
+  .segmented {
+    display: inline-flex;
+    background: #F6F7F9;
+    border: 1px solid #D8DEE6;
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .segmented .seg {
+    height: 28px;
+    padding: 0 14px;
+    display: flex; align-items: center;
+    font-size: 13px;
+    color: #5E6D82;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .segmented .seg:hover { color: #1F2D3D; }
+  .segmented .seg.active { background: #0E7C86; color: #FFFFFF; }
+  .segmented .seg .cnt { margin-left: 6px; font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+
+  /* 任务表格 */
+  .table-card { overflow: hidden; }
+  table.task-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .task-table thead th {
+    background: #E8ECF1;
+    color: #5E6D82;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    padding: 0 12px;
+    height: 40px;
+    white-space: nowrap;
+  }
+  .task-table tbody td {
+    height: 48px;
+    padding: 0 10px;
+    border-bottom: 1px solid #D8DEE6;
+    font-size: 14px;
+    color: #1F2D3D;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .task-table tbody tr:last-child td { border-bottom: none; }
+  .task-table tbody tr.row-hover { background: #F6F7F9; }
+  .task-table tbody tr:hover { background: #F6F7F9; }
+
+  .col-id    { width: 90px; }
+  .col-title { width: auto; }
+  .col-type  { width: 60px; }
+  .col-prio  { width: 50px; }
+  .col-state { width: 92px; }
+  .col-user  { width: 58px; }
+  .col-due   { width: 96px; }
+  .col-prog  { width: 104px; }
+  .col-upd   { width: 130px; }
+  .col-ops   { width: 148px; }
+
+  .task-id { color: #5E6D82; font-size: 13px; }
+  .task-title { color: #1F2D3D; }
+  .task-title .sub-prefix { color: #8A97A8; }
+  .task-title .parent-id { color: #8A97A8; font-size: 13px; }
+
+  .type-tag {
+    display: inline-block;
+    height: 22px;
+    line-height: 20px;
+    padding: 0 8px;
+    border: 1px solid #D8DEE6;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #5E6D82;
+    background: #FFFFFF;
+  }
+
+  .prio { font-weight: 500; }
+  .prio-p0 { color: #C8493F; font-weight: 700; }
+  .prio-p1 { color: #D9822B; }
+  .prio-p2 { color: #1F2D3D; font-weight: 400; }
+  .prio-p3 { color: #8A97A8; font-weight: 400; }
+
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+  .st-todo   .dot { background: #8A97A8; } .st-todo   { color: #5E6D82; }
+  .st-doing  .dot { background: #0E7C86; } .st-doing  { color: #0E7C86; }
+  .st-review .dot { background: #D9822B; } .st-review { color: #D9822B; }
+  .st-done   .dot { background: #2F9E6E; } .st-done   { color: #2F9E6E; }
+  .st-arch   .dot { background: #C3CBD4; } .st-arch   { color: #8A97A8; }
+
+  .due { font-size: 13px; color: #5E6D82; }
+  .due.overdue { color: #C8493F; font-weight: 500; }
+  .due .overdue-tag {
+    display: inline-block;
+    margin-left: 6px;
+    height: 18px; line-height: 16px;
+    padding: 0 5px;
+    border: 1px solid #C8493F;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #C8493F;
+    font-weight: 400;
+  }
+
+  .progress-cell { display: flex; align-items: center; gap: 8px; }
+  .progress-bar {
+    width: 56px; height: 4px;
+    background: #E8ECF1;
+    border-radius: 2px;
+    overflow: hidden;
+    flex: 0 0 56px;
+  }
+  .progress-bar .fill { height: 100%; background: #0E7C86; border-radius: 2px; }
+  .progress-bar .fill.full { background: #2F9E6E; }
+  .progress-num { font-size: 12px; color: #5E6D82; }
+
+  .upd-time { font-size: 13px; color: #8A97A8; }
+
+  .ops { display: flex; gap: 12px; }
+  .op-btn {
+    font-size: 13px;
+    color: #0E7C86;
+    cursor: pointer;
+    background: none; border: none; padding: 0;
+    font-family: inherit;
+  }
+  .op-btn:hover { color: #0A5F67; text-decoration: underline; }
+  .op-btn:disabled, .op-btn.disabled {
+    color: #C3CBD4;
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+  /* 默认行：操作列半透明（示意悬停才完全显现）；悬停行完全不透明 */
+  .task-table tbody tr:not(.row-hover) .ops { opacity: 0.35; }
+  .task-table tbody tr.row-hover .ops { opacity: 1; }
+
+  /* 分页 */
+  .table-footer {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid #D8DEE6;
+  }
+  .total-info { font-size: 13px; color: #8A97A8; }
+  .pagination { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .page-btn {
+    min-width: 28px; height: 28px;
+    padding: 0 8px;
+    border: 1px solid #D8DEE6;
+    border-radius: 4px;
+    background: #FFFFFF;
+    color: #5E6D82;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    font-family: inherit;
+  }
+  .page-btn:hover { color: #0E7C86; border-color: #0E7C86; }
+  .page-btn.active { background: #0E7C86; border-color: #0E7C86; color: #FFFFFF; }
+  .page-btn.disabled { color: #C3CBD4; cursor: not-allowed; border-color: #D8DEE6; background: #FFFFFF; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ========== 侧边栏 ========== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">T</div>
+      <div class="brand-text">TaskFlow<small>企业任务管理系统</small></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active">
+        <span class="icon">●</span><span>任务列表</span><span class="nav-badge">12</span>
+      </div>
+      <div class="nav-item"><span class="icon">◆</span><span>统计总览</span></div>
+      <div class="nav-item"><span class="icon">■</span><span>日程</span></div>
+      <div class="nav-item"><span class="icon">▲</span><span>通知中心</span></div>
+      <div class="nav-item"><span class="icon">⬟</span><span>权限管理</span></div>
+    </nav>
+    <div class="user-card">
+      <div class="avatar-circle">张伟</div>
+      <div class="user-info">
+        <div class="name">张伟</div>
+        <div class="role">任务管理员</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== 主区域 ========== -->
+  <div class="main">
+
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <div class="breadcrumb">任务管理<span class="sep">/</span><span class="current">任务列表</span></div>
+      <div class="topbar-right">
+        <input class="global-search" type="text" placeholder="全局搜索任务、成员…">
+        <div class="bell">🔔<span class="dot-badge">5</span></div>
+        <div class="topbar-avatar">张伟</div>
+      </div>
+    </header>
+
+    <!-- 内容区 -->
+    <main class="content">
+
+      <!-- 页面标题行 -->
+      <div class="page-head">
+        <div class="page-title">
+          <h1>任务列表</h1>
+          <p>查看与管理团队全部任务，支持按状态、优先级、成员等维度筛选。</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-default">导出 CSV</button>
+          <button class="btn btn-primary">＋ 新建任务</button>
+        </div>
+      </div>
+
+      <!-- 筛选栏 -->
+      <div class="card filter-bar">
+        <div class="filter-row">
+          <div class="segmented">
+            <div class="seg active">全部<span class="cnt">137</span></div>
+            <div class="seg">我创建的<span class="cnt">26</span></div>
+            <div class="seg">指派给我的<span class="cnt">12</span></div>
+            <div class="seg">已逾期<span class="cnt">8</span></div>
+          </div>
+        </div>
+        <div class="filter-row">
+          <input class="kw-input" type="text" placeholder="编号 / 标题 / 描述 / 姓名">
+          <div class="select-fake"><span class="label">状态：全部</span><span class="caret">▾</span></div>
+          <div class="select-fake"><span class="label">优先级：全部</span><span class="caret">▾</span></div>
+          <div class="select-fake"><span class="label">任务类型：全部</span><span class="caret">▾</span></div>
+          <div class="select-fake"><span class="label">创建人：全部</span><span class="caret">▾</span></div>
+          <div class="select-fake"><span class="label">处理人：全部</span><span class="caret">▾</span></div>
+          <span class="filter-reset">重置筛选</span>
+        </div>
+      </div>
+
+      <!-- 任务表格 -->
+      <div class="card table-card">
+        <table class="task-table">
+          <colgroup>
+            <col class="col-id"><col class="col-title"><col class="col-type"><col class="col-prio">
+            <col class="col-state"><col class="col-user"><col class="col-user"><col class="col-due">
+            <col class="col-prog"><col class="col-upd"><col class="col-ops">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>编号</th><th>标题</th><th>类型</th><th>优先级</th><th>状态</th>
+              <th>创建人</th><th>处理人</th><th>到期时间</th><th>进度</th><th>更新时间</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 悬停行（展示行底色与完全可见的操作按钮） -->
+            <tr class="row-hover">
+              <td class="task-id num">TSK-100123</td>
+              <td class="task-title">首页改版视觉走查与还原度验收</td>
+              <td><span class="type-tag">需求</span></td>
+              <td><span class="prio prio-p0">P0</span></td>
+              <td><span class="status st-doing"><span class="dot"></span>进行中</span></td>
+              <td>李娜</td>
+              <td>王强</td>
+              <td><span class="due overdue num">2025-01-08<span class="overdue-tag">逾期</span></span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:65%"></div></div>
+                  <span class="progress-num num">65%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-12 14:32</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100122</td>
+              <td class="task-title">订单导出接口性能优化（超时治理）</td>
+              <td><span class="type-tag">缺陷</span></td>
+              <td><span class="prio prio-p1">P1</span></td>
+              <td><span class="status st-review"><span class="dot"></span>待验收</span></td>
+              <td>王强</td>
+              <td>赵磊</td>
+              <td><span class="due num">2025-01-15</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:90%"></div></div>
+                  <span class="progress-num num">90%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-12 11:05</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100121</td>
+              <td class="task-title">会员成长体系二期需求评审</td>
+              <td><span class="type-tag">需求</span></td>
+              <td><span class="prio prio-p2">P2</span></td>
+              <td><span class="status st-todo"><span class="dot"></span>待办</span></td>
+              <td>张伟</td>
+              <td>李娜</td>
+              <td><span class="due num">2025-01-20</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                  <span class="progress-num num">0%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-11 18:20</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100120</td>
+              <td class="task-title">支付网关切换接口联调</td>
+              <td><span class="type-tag">任务</span></td>
+              <td><span class="prio prio-p0">P0</span></td>
+              <td><span class="status st-doing"><span class="dot"></span>进行中</span></td>
+              <td>赵磊</td>
+              <td>陈静</td>
+              <td><span class="due overdue num">2025-01-10<span class="overdue-tag">逾期</span></span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:40%"></div></div>
+                  <span class="progress-num num">40%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-12 09:47</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <!-- 子任务行 -->
+            <tr>
+              <td class="task-id num">TSK-100124</td>
+              <td class="task-title"><span class="sub-prefix">↳ </span><span class="parent-id num">[TSK-100120]</span> 支付回调异常用例补充</td>
+              <td><span class="type-tag">任务</span></td>
+              <td><span class="prio prio-p1">P1</span></td>
+              <td><span class="status st-todo"><span class="dot"></span>待办</span></td>
+              <td>陈静</td>
+              <td>孙鹏</td>
+              <td><span class="due num">2025-01-16</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:0%"></div></div>
+                  <span class="progress-num num">0%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-11 16:02</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100119</td>
+              <td class="task-title">数据看板埋点方案设计与评审</td>
+              <td><span class="type-tag">任务</span></td>
+              <td><span class="prio prio-p2">P2</span></td>
+              <td><span class="status st-doing"><span class="dot"></span>进行中</span></td>
+              <td>刘洋</td>
+              <td>周敏</td>
+              <td><span class="due num">2025-01-22</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:30%"></div></div>
+                  <span class="progress-num num">30%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-10 15:44</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <!-- 已完成行：操作按钮禁用灰 -->
+            <tr>
+              <td class="task-id num">TSK-100118</td>
+              <td class="task-title">登录页安全漏洞修复（XSS 过滤）</td>
+              <td><span class="type-tag">缺陷</span></td>
+              <td><span class="prio prio-p1">P1</span></td>
+              <td><span class="status st-done"><span class="dot"></span>已完成</span></td>
+              <td>王强</td>
+              <td>孙鹏</td>
+              <td><span class="due num">2025-01-09</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill full" style="width:100%"></div></div>
+                  <span class="progress-num num">100%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-09 17:28</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn" disabled>优先级</button>
+                  <button class="op-btn" disabled>到期</button>
+                  <button class="op-btn" disabled>转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100117</td>
+              <td class="task-title">移动端账单页适配问题排查</td>
+              <td><span class="type-tag">缺陷</span></td>
+              <td><span class="prio prio-p2">P2</span></td>
+              <td><span class="status st-review"><span class="dot"></span>待验收</span></td>
+              <td>李娜</td>
+              <td>赵磊</td>
+              <td><span class="due num">2025-01-14</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill" style="width:85%"></div></div>
+                  <span class="progress-num num">85%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-09 10:16</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100116</td>
+              <td class="task-title">周报自动生成脚本迁移至新服务器</td>
+              <td><span class="type-tag">优化</span></td>
+              <td><span class="prio prio-p3">P3</span></td>
+              <td><span class="status st-arch"><span class="dot"></span>已归档</span></td>
+              <td>周敏</td>
+              <td>刘洋</td>
+              <td><span class="due num">2024-12-28</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill full" style="width:100%"></div></div>
+                  <span class="progress-num num">100%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-06 09:30</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn" disabled>优先级</button>
+                  <button class="op-btn" disabled>到期</button>
+                  <button class="op-btn" disabled>转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="task-id num">TSK-100115</td>
+              <td class="task-title">十二月客户反馈分类整理与归档</td>
+              <td><span class="type-tag">任务</span></td>
+              <td><span class="prio prio-p3">P3</span></td>
+              <td><span class="status st-done"><span class="dot"></span>已完成</span></td>
+              <td>孙鹏</td>
+              <td>周敏</td>
+              <td><span class="due num">2025-01-05</span></td>
+              <td>
+                <div class="progress-cell">
+                  <div class="progress-bar"><div class="fill full" style="width:100%"></div></div>
+                  <span class="progress-num num">100%</span>
+                </div>
+              </td>
+              <td class="upd-time num">2025-01-05 16:51</td>
+              <td>
+                <div class="ops">
+                  <button class="op-btn">优先级</button>
+                  <button class="op-btn">到期</button>
+                  <button class="op-btn">转派</button>
+                  <button class="op-btn">详情</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 分页 -->
+        <div class="table-footer">
+          <span class="total-info num">共 137 条 · 每页 20 条</span>
+          <div class="pagination">
+            <button class="page-btn disabled">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">4</button>
+            <button class="page-btn">5</button>
+            <button class="page-btn">6</button>
+            <button class="page-btn">7</button>
+            <button class="page-btn">›</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

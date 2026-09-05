@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>任务详情 · TSK-100118 企业内网网关升级 — TaskFlow</title>
+<style>
+  /* ============ 设计令牌 ============ */
+  :root{
+    --brand:#0E7C86;        /* 品牌主色 青碧 */
+    --brand-hover:#0A5F67;  /* 主色 hover 深 */
+    --brand-light:#E3F2F3;  /* 主色浅底 */
+    --ink:#12242E;          /* 墨青 */
+    --paper:#F6F7F9;        /* 纸灰 */
+    --text:#1F2D3D;         /* 主文案 */
+    --text-2:#5E6D82;       /* 次要文案 */
+    --text-3:#8A97A8;       /* 辅助文案 */
+    --border:#D8DEE6;       /* 边框 */
+    --bg-soft:#E8ECF1;      /* 浅底 */
+    --st-todo:#8A97A8;      /* 待办 */
+    --st-doing:#0E7C86;     /* 进行中 */
+    --st-review:#D9822B;    /* 待验收 */
+    --st-done:#2F9E6E;      /* 已完成 */
+    --st-archived:#C3CBD4;  /* 已归档 */
+    --danger:#C8493F;       /* 危险 / P0 / 逾期 */
+    --warn:#D9822B;         /* 预警 */
+    --radius:8px;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px; line-height:1.6; color:var(--text);
+    background:var(--paper);
+    min-width:1280px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{ font-variant-numeric:tabular-nums; }
+  a{ color:var(--brand); text-decoration:none; }
+  button{ font-family:inherit; font-size:14px; border:none; background:none; cursor:pointer; }
+
+  /* ============ 背景层：任务列表页（被遮罩压暗） ============ */
+  .scene{ position:fixed; inset:0; z-index:1; display:flex; background:var(--paper); }
+  .side{
+    width:232px; flex:none; background:var(--ink); color:rgba(255,255,255,.72);
+    display:flex; flex-direction:column; padding:0 12px 24px;
+  }
+  .side-logo{
+    height:56px; display:flex; align-items:center; gap:10px; padding:0 12px;
+    color:#fff; font-size:16px; font-weight:600; letter-spacing:.5px;
+  }
+  .side-logo .mark{
+    width:24px; height:24px; border-radius:6px; background:var(--brand);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:13px; font-weight:700;
+  }
+  .side-group{ margin-top:20px; padding:0 12px 6px; font-size:12px; color:rgba(255,255,255,.38); }
+  .side-item{
+    display:flex; align-items:center; gap:10px; height:40px; padding:0 12px;
+    border-radius:6px; font-size:14px; color:rgba(255,255,255,.72);
+  }
+  .side-item .dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.35); }
+  .side-item.active{ background:rgba(14,124,134,.32); color:#fff; }
+  .side-item.active .dot{ background:var(--brand-light); }
+
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{
+    height:56px; flex:none; background:#fff; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; padding:0 24px; gap:16px;
+  }
+  .topbar .crumb{ font-size:14px; color:var(--text-2); }
+  .topbar .crumb b{ color:var(--text); font-weight:600; }
+  .topbar .search{
+    margin-left:auto; width:240px; height:32px; border:1px solid var(--border);
+    border-radius:6px; background:var(--paper); color:var(--text-3);
+    display:flex; align-items:center; padding:0 12px; font-size:13px;
+  }
+  .topbar .avatar{
+    width:30px; height:30px; border-radius:50%; background:var(--brand-light);
+    color:var(--brand); font-size:12px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .list-wrap{ flex:1; padding:20px 24px; overflow:hidden; }
+  .list-card{
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .list-toolbar{
+    height:52px; display:flex; align-items:center; gap:12px; padding:0 16px;
+    border-bottom:1px solid var(--border);
+  }
+  .list-toolbar .tab{ font-size:14px; color:var(--text-2); padding:4px 2px; }
+  .list-toolbar .tab.on{ color:var(--brand); font-weight:600; border-bottom:2px solid var(--brand); }
+  .sk{ border-radius:4px; background:var(--bg-soft); }
+  table.skel{ width:100%; border-collapse:collapse; }
+  table.skel th{
+    text-align:left; font-size:12px; font-weight:500; color:var(--text-3);
+    padding:12px 16px; border-bottom:1px solid var(--border); background:var(--paper);
+  }
+  table.skel td{ padding:14px 16px; border-bottom:1px solid var(--bg-soft); }
+  /* 遮罩 */
+  .veil{ position:fixed; inset:0; z-index:2; background:rgba(18,36,46,.45); }
+
+  /* ============ 抽屉 ============ */
+  .drawer{
+    position:relative; z-index:3;
+    width:720px; margin-left:auto; min-height:100vh;
+    background:#fff; border-left:1px solid var(--border);
+    box-shadow:-16px 0 40px rgba(18,36,46,.18);
+  }
+
+  /* 标题栏 48px 墨青 */
+  .d-head{
+    height:48px; background:var(--ink); display:flex; align-items:center;
+    padding:0 16px; gap:12px; position:sticky; top:0; z-index:5;
+  }
+  .d-close{
+    width:28px; height:28px; flex:none; border-radius:6px; color:rgba(255,255,255,.7);
+    font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .d-close:hover{ background:rgba(255,255,255,.12); color:#fff; }
+  .d-id{ font-size:13px; color:rgba(255,255,255,.55); font-variant-numeric:tabular-nums; letter-spacing:.3px; }
+  .d-title{
+    font-size:20px; font-weight:600; color:#fff; line-height:1.2;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .d-status{
+    margin-left:auto; flex:none; display:inline-flex; align-items:center; gap:6px;
+    height:24px; padding:0 10px; border-radius:12px;
+    background:var(--brand-light); color:var(--brand); font-size:12px; font-weight:600;
+  }
+  .d-status i{ width:8px; height:8px; border-radius:50%; background:var(--st-doing); }
+
+  /* 操作按钮行 48px */
+  .d-actions{
+    height:48px; display:flex; align-items:center; gap:8px; padding:0 20px;
+    background:#fff; border-bottom:1px solid var(--border);
+    position:sticky; top:48px; z-index:5;
+  }
+  .btn{
+    height:32px; padding:0 14px; border-radius:6px; font-size:14px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-primary{ background:var(--brand); color:#fff; font-weight:500; }
+  .btn-primary:hover{ background:var(--brand-hover); }
+  .btn-secondary{
+    background:#fff; color:var(--brand); border:1px solid var(--brand); font-weight:500;
+  }
+  .btn-secondary:hover{ background:var(--brand-light); }
+  .btn-text{ color:var(--text-2); padding:0 8px; }
+  .btn-text:hover{ color:var(--brand); }
+  .btn-text.disabled{
+    color:var(--st-archived); cursor:not-allowed; position:relative;
+  }
+  .btn-text.disabled:hover{ color:var(--st-archived); }
+  .btn-text.disabled:hover::after{
+    content:attr(data-tip);
+    position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%);
+    white-space:nowrap; background:var(--ink); color:#fff; font-size:12px;
+    padding:5px 10px; border-radius:4px; z-index:9; font-weight:400;
+  }
+  .d-actions .spacer{ margin-left:auto; }
+
+  /* 分区通用 */
+  .d-sec{ padding:20px 24px; border-bottom:1px solid var(--bg-soft); }
+  .sec-title{
+    font-size:14px; font-weight:600; color:var(--text); margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .sec-title .cnt{ color:var(--text-3); font-weight:400; font-variant-numeric:tabular-nums; }
+
+  /* 字段区 双列栅格 */
+  .fields{
+    display:grid; grid-template-columns:1fr 1fr; column-gap:32px; row-gap:14px;
+  }
+  .field .f-label{ font-size:12px; color:var(--text-3); margin-bottom:2px; }
+  .field .f-value{ font-size:14px; color:var(--text); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .f-value.overdue{ color:var(--danger); font-weight:500; }
+  .tag-overdue{
+    font-size:12px; font-weight:500; color:var(--danger); background:#FBEAE8;
+    border-radius:4px; padding:1px 6px; line-height:18px;
+  }
+  .tag-p1{
+    font-size:12px; font-weight:600; color:var(--warn); background:#FDF0E5;
+    border-radius:4px; padding:1px 6px; line-height:18px; font-variant-numeric:tabular-nums;
+  }
+  .f-value .muted{ color:var(--text-3); }
+
+  /* 描述 */
+  .desc p{ font-size:14px; color:var(--text-2); line-height:1.8; }
+  .desc p + p{ margin-top:8px; }
+
+  /* 进度 */
+  .progress-top{ display:flex; align-items:baseline; gap:12px; margin-bottom:10px; }
+  .progress-pct{
+    font-size:28px; font-weight:600; color:var(--brand);
+    font-variant-numeric:tabular-nums; line-height:1;
+  }
+  .progress-note{ font-size:13px; color:var(--text-2); }
+  .bar{ height:8px; border-radius:4px; background:var(--bg-soft); overflow:hidden; }
+  .bar > i{ display:block; height:100%; border-radius:4px; background:var(--brand); }
+
+  /* 子任务 */
+  .subtask{
+    display:flex; align-items:center; gap:12px; padding:12px 0;
+    border-bottom:1px solid var(--bg-soft);
+  }
+  .subtask:last-child{ border-bottom:none; padding-bottom:0; }
+  .subtask:first-of-type{ padding-top:0; }
+  .sub-id{ font-size:12px; color:var(--text-3); font-variant-numeric:tabular-nums; flex:none; width:86px; }
+  .sub-name{ flex:1; min-width:0; font-size:14px; color:var(--text); }
+  .sub-name.done{ color:var(--text-3); text-decoration:line-through; text-decoration-color:var(--st-archived); }
+  .st{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2); flex:none; }
+  .st i{ width:8px; height:8px; border-radius:50%; }
+  .sub-meta{ font-size:12px; color:var(--text-3); flex:none; font-variant-numeric:tabular-nums; }
+  .mini-bar{ width:72px; flex:none; height:6px; border-radius:3px; background:var(--bg-soft); overflow:hidden; }
+  .mini-bar > i{ display:block; height:100%; border-radius:3px; }
+  .mini-pct{ width:34px; flex:none; text-align:right; font-size:12px; color:var(--text-2); font-variant-numeric:tabular-nums; }
+
+  /* 评论 */
+  .comment{ display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--bg-soft); }
+  .comment:last-of-type{ border-bottom:none; }
+  .c-avatar{
+    width:32px; height:32px; flex:none; border-radius:50%; font-size:13px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .av-teal{ background:var(--brand-light); color:var(--brand); }
+  .av-orange{ background:#FDF0E5; color:var(--warn); }
+  .av-green{ background:#E8F6EF; color:var(--st-done); }
+  .c-body{ flex:1; min-width:0; }
+  .c-head{ display:flex; align-items:baseline; gap:8px; margin-bottom:2px; }
+  .c-name{ font-size:14px; font-weight:600; color:var(--text); }
+  .c-time{ font-size:12px; color:var(--text-3); font-variant-numeric:tabular-nums; }
+  .c-text{ font-size:14px; color:var(--text-2); line-height:1.7; }
+  .c-input-row{ display:flex; gap:12px; margin-top:16px; }
+  .c-input{
+    flex:1; min-height:72px; border:1px solid var(--border); border-radius:6px;
+    padding:10px 12px; font-size:14px; color:var(--text-3); background:var(--paper);
+  }
+  .c-submit{ align-self:flex-end; height:32px; padding:0 16px; border-radius:6px; background:var(--brand); color:#fff; font-size:14px; font-weight:500; }
+  .c-submit:hover{ background:var(--brand-hover); }
+
+  /* 附件 */
+  .file-row{
+    display:flex; align-items:center; gap:12px; padding:12px 0;
+    border-bottom:1px solid var(--bg-soft);
+  }
+  .file-row:last-child{ border-bottom:none; padding-bottom:0; }
+  .file-icon{
+    width:40px; height:44px; flex:none; border-radius:6px;
+    display:flex; align-items:flex-end; justify-content:center; padding-bottom:7px;
+    font-size:9px; font-weight:700; letter-spacing:.4px; color:#fff;
+    position:relative;
+  }
+  .file-icon::before{
+    content:""; position:absolute; top:0; right:0; width:10px; height:10px;
+    background:rgba(255,255,255,.45); border-radius:0 6px 0 4px;
+  }
+  .fi-pdf{ background:var(--danger); }
+  .fi-xlsx{ background:var(--st-done); }
+  .file-info{ flex:1; min-width:0; }
+  .file-name{ font-size:14px; color:var(--text); font-weight:500; }
+  .file-meta{ font-size:12px; color:var(--text-3); font-variant-numeric:tabular-nums; }
+  .file-ops{ flex:none; display:flex; gap:14px; }
+  .link-btn{ font-size:13px; color:var(--brand); padding:0; }
+  .link-btn:hover{ color:var(--brand-hover); }
+  .link-btn.danger{ color:var(--danger); }
+  .link-btn.danger:hover{ color:#A83A32; }
+
+  /* 操作时间线 */
+  .timeline{ position:relative; padding-left:20px; }
+  .timeline::before{
+    content:""; position:absolute; left:5px; top:8px; bottom:8px;
+    width:2px; background:var(--bg-soft);
+  }
+  .tl-item{ position:relative; padding:0 0 18px 14px; }
+  .tl-item:last-child{ padding-bottom:0; }
+  .tl-dot{
+    position:absolute; left:-19px; top:6px; width:8px; height:8px; border-radius:50%;
+    box-shadow:0 0 0 3px #fff;
+  }
+  .tl-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .tl-action{ font-size:14px; font-weight:600; color:var(--text); }
+  .tl-actor{ font-size:13px; color:var(--text-2); }
+  .tl-time{ margin-left:auto; font-size:12px; color:var(--text-3); font-variant-numeric:tabular-nums; }
+  .tl-note{ font-size:13px; color:var(--text-2); margin-top:3px; line-height:1.7; }
+  .tl-note .pct{ color:var(--brand); font-weight:600; font-variant-numeric:tabular-nums; }
+
+  /* 关联邮件记录 */
+  .mail-sec{ padding:16px 24px 24px; }
+  .mail-head{
+    display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-2);
+    font-weight:600; margin-bottom:10px;
+  }
+  .mail-head .arrow{ font-size:10px; color:var(--text-3); }
+  .mail-list{ border:1px solid var(--bg-soft); border-radius:6px; overflow:hidden; }
+  .mail-row{
+    display:flex; align-items:center; gap:12px; padding:9px 12px;
+    font-size:12px; border-bottom:1px solid var(--bg-soft);
+  }
+  .mail-row:last-child{ border-bottom:none; }
+  .mail-to{ color:var(--text-2); flex:none; width:168px; font-variant-numeric:tabular-nums; }
+  .mail-subject{ flex:1; min-width:0; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mail-result{
+    flex:none; font-size:11px; font-weight:600; color:var(--st-done);
+    background:#E8F6EF; border-radius:3px; padding:0 6px; line-height:18px;
+    letter-spacing:.3px;
+  }
+  .mail-time{ flex:none; color:var(--text-3); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+  <!-- ============ 背景层：任务列表页（压暗） ============ -->
+  <div class="scene" aria-hidden="true">
+    <aside class="side">
+      <div class="side-logo"><span class="mark">T</span>TaskFlow</div>
+      <div class="side-group">工作台</div>
+      <div class="side-item"><span class="dot"></span>待办事项</div>
+      <div class="side-item active"><span class="dot"></span>任务列表</div>
+      <div class="side-item"><span class="dot"></span>我的日历</div>
+      <div class="side-group">项目</div>
+      <div class="side-item"><span class="dot"></span>基础设施组</div>
+      <div class="side-item"><span class="dot"></span>信息安全组</div>
+      <div class="side-item"><span class="dot"></span>效能平台组</div>
+      <div class="side-group">系统</div>
+      <div class="side-item"><span class="dot"></span>统计报表</div>
+      <div class="side-item"><span class="dot"></span>系统设置</div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <span class="crumb">基础设施组 / <b>任务列表</b></span>
+        <span class="search">搜索任务编号、标题…</span>
+        <span class="avatar">李</span>
+      </header>
+      <div class="list-wrap">
+        <div class="list-card">
+          <div class="list-toolbar">
+            <span class="tab on">全部（128）</span>
+            <span class="tab">进行中（36）</span>
+            <span class="tab">待验收（7）</span>
+            <span class="tab">已逾期（4）</span>
+          </div>
+          <table class="skel">
+            <thead>
+              <tr>
+                <th style="width:110px">编号</th><th>任务标题</th>
+                <th style="width:90px">状态</th><th style="width:80px">处理人</th>
+                <th style="width:120px">到期时间</th><th style="width:70px">优先级</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="sk" style="display:block;width:78px;height:12px"></span></td><td><span class="sk" style="display:block;width:62%;height:12px"></span></td><td><span class="sk" style="display:block;width:44px;height:12px"></span></td><td><span class="sk" style="display:block;width:30px;height:12px"></span></td><td><span class="sk" style="display:block;width:92px;height:12px"></span></td><td><span class="sk" style="display:block;width:26px;height:12px"></span></td></tr>
+              <tr><td><span class="sk" style="display:block;width:78px;height:12px"></span></td><td><span class="sk" style="display:block;width:48%;height:12px"></span></td><td><span class="sk" style="display:block;width:44px;height:12px"></span></td><td><span class="sk" style="display:block;width:30px;height:12px"></span></td><td><span class="sk" style="display:block;width:92px;height:12px"></span></td><td><span class="sk" style="display:block;width:26px;height:12px"></span></td></tr>
+              <tr><td><span class="sk" style="display:block;width:78px;height:12px"></span></td><td><span class="sk" style="display:block;width:55%;height:12px"></span></td><td><span class="sk" style="display:block;width:44px;height:12px"></span></td><td><span class="sk" style="display:block;width:30px;height:12px"></span></td><td><span class="sk" style="display:block;width:92px;height:12px"></span></td><td><span class="sk" style="display:block;width:26px;height:12px"></span></td></tr>
+              <tr><td><span class="sk" style="display:block;width:78px;height:12px"></span></td><td><span class="sk" style="display:block;width:70%;height:12px"></span></td><td><span class="sk" style="display:block;width:44px;height:12px"></span></td><td><span class="sk" style="display:block;width:30px;height:12px"></span></td><td><span class="sk" style="display:block;width:92px;height:12px"></span></td><td><span class="sk" style="display:block;width:26px;height:12px"></span></td></tr>
+              <tr><td><span class="sk" style="display:block;width:78px;height:12px"></span></td><td><span class="sk" style="display:block;width:40%;height:12px"></span></td><td><span class="sk" style="display:block;width:44px;height:12px"></span></td><td><span class="sk" style="display:block;width:30px;height:12px"></span></td><td><span class="sk" style="display:block;width:92px;height:12px"></span></td><td><span class="sk" style="display:block;width:26px;height:12px"></span></td></tr>
+              <tr><td><span class="sk" style="display:block;width:78px;height:12px"></span></td><td><span class="sk" style="display:block;width:58%;height:12px"></span></td><td><span class="sk" style="display:block;width:44px;height:12px"></span></td><td><span class="sk" style="display:block;width:30px;height:12px"></span></td><td><span class="sk" style="display:block;width:92px;height:12px"></span></td><td><span class="sk" style="display:block;width:26px;height:12px"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="veil" aria-hidden="true"></div>
+
+  <!-- ============ 任务详情抽屉 720px ============ -->
+  <div class="drawer" role="dialog" aria-label="任务详情">
+
+    <!-- 标题栏 -->
+    <div class="d-head">
+      <button class="d-close" title="关闭" aria-label="关闭">×</button>
+      <span class="d-id">TSK-100118</span>
+      <span class="d-title">企业内网网关升级</span>
+      <span class="d-status"><i></i>进行中</span>
+    </div>
+
+    <!-- 操作按钮行 -->
+    <div class="d-actions">
+      <button class="btn btn-primary">更新进度</button>
+      <button class="btn btn-secondary">提交验收</button>
+      <button class="btn btn-text">转派</button>
+      <button class="btn btn-text">调整优先级</button>
+      <button class="btn btn-text">调整到期</button>
+      <span class="spacer"></span>
+      <button class="btn btn-text disabled" disabled title="进行中的任务不可删除，请先归档"
+              data-tip="进行中的任务不可删除，请先归档">删除</button>
+    </div>
+
+    <!-- 字段区 -->
+    <div class="d-sec">
+      <div class="fields">
+        <div class="field">
+          <div class="f-label">任务类型</div>
+          <div class="f-value">技术升级</div>
+        </div>
+        <div class="field">
+          <div class="f-label">优先级</div>
+          <div class="f-value"><span class="tag-p1">P1</span><span class="muted">高</span></div>
+        </div>
+        <div class="field">
+          <div class="f-label">创建人</div>
+          <div class="f-value">李娜</div>
+        </div>
+        <div class="field">
+          <div class="f-label">处理人</div>
+          <div class="f-value">王强</div>
+        </div>
+        <div class="field">
+          <div class="f-label">创建时间</div>
+          <div class="f-value num">2024-03-08 11:12</div>
+        </div>
+        <div class="field">
+          <div class="f-label">到期时间</div>
+          <div class="f-value overdue"><span class="num">2024-03-20 18:00</span><span class="tag-overdue">已逾期 2 天</span></div>
+        </div>
+        <div class="field">
+          <div class="f-label">来源渠道</div>
+          <div class="f-value">网页</div>
+        </div>
+        <div class="field">
+          <div class="f-label">父任务</div>
+          <div class="f-value"><span class="muted">无</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 描述 -->
+    <div class="d-sec desc">
+      <div class="sec-title">任务描述</div>
+      <p>【背景】现有企业内网网关已运行四年，核心路由设备接近厂商停止维护周期，且现有鉴权模块不支持即将推行的统一身份认证（SSO）规范，存在安全隐患。</p>
+      <p>【目标】在不影响日常办公的前提下，分批完成网关核心路由迁移与鉴权模块改造，接入统一身份认证平台。</p>
+      <p>【验收标准】迁移后内网访问时延不高于原基线的 110%；全量员工可通过 SSO 正常登录；回滚方案通过演练验证。</p>
+    </div>
+
+    <!-- 进度 -->
+    <div class="d-sec">
+      <div class="sec-title">任务进度</div>
+      <div class="progress-top">
+        <span class="progress-pct">45%</span>
+        <span class="progress-note">最近进展：网关核心路由已迁移，剩余鉴权模块</span>
+      </div>
+      <div class="bar"><i style="width:45%"></i></div>
+    </div>
+
+    <!-- 子任务 -->
+    <div class="d-sec">
+      <div class="sec-title">子任务<span class="cnt">（2）</span></div>
+      <div class="subtask">
+        <span class="sub-id">TSK-100121</span>
+        <span class="sub-name done">网关核心路由分批迁移</span>
+        <span class="st"><i style="background:var(--st-done)"></i>已完成</span>
+        <span class="sub-meta">王强 · 到期 2024-03-15</span>
+        <span class="mini-bar"><i style="width:100%;background:var(--st-done)"></i></span>
+        <span class="mini-pct">100%</span>
+      </div>
+      <div class="subtask">
+        <span class="sub-id">TSK-100122</span>
+        <span class="sub-name">鉴权模块改造并接入 SSO</span>
+        <span class="st"><i style="background:var(--st-doing)"></i>进行中</span>
+        <span class="sub-meta">王强 · 到期 2024-03-22</span>
+        <span class="mini-bar"><i style="width:30%;background:var(--brand)"></i></span>
+        <span class="mini-pct">30%</span>
+      </div>
+    </div>
+
+    <!-- 评论 -->
+    <div class="d-sec">
+      <div class="sec-title">评论<span class="cnt">（3）</span></div>
+
+      <div class="comment">
+        <span class="c-avatar av-teal">李</span>
+        <div class="c-body">
+          <div class="c-head"><span class="c-name">李娜</span><span class="c-time num">2024-03-08 11:15</span></div>
+          <div class="c-text">@张伟 这项升级涉及生产网络，请先评估迁移窗口和回滚方案，排期后同步给我，信息安全组那边要求本季度内完成。</div>
+        </div>
+      </div>
+
+      <div class="comment">
+        <span class="c-avatar av-orange">张</span>
+        <div class="c-body">
+          <div class="c-head"><span class="c-name">张伟</span><span class="c-time num">2024-03-15 10:08</span></div>
+          <div class="c-text">核心路由已迁移一半，但这周我开始休年假，剩余工作转交给 @王强 跟进。技术方案和迁移 checklist 已上传到附件，有问题随时电话我。</div>
+        </div>
+      </div>
+
+      <div class="comment">
+        <span class="c-avatar av-green">王</span>
+        <div class="c-body">
+          <div class="c-head"><span class="c-name">王强</span><span class="c-time num">2024-03-18 14:25</span></div>
+          <div class="c-text">已接手。核心路由迁移全部完成，灰度观察 48 小时无告警；鉴权模块开发约三成，预计周四提交测试环境联调。到期时间比较紧，我会每天更新进度。</div>
+        </div>
+      </div>
+
+      <div class="c-input-row">
+        <div class="c-input">输入评论内容，支持 @ 提及同事…</div>
+        <button class="c-submit">发表评论</button>
+      </div>
+    </div>
+
+    <!-- 附件 -->
+    <div class="d-sec">
+      <div class="sec-title">附件<span class="cnt">（2）</span></div>
+
+      <div class="file-row">
+        <span class="file-icon fi-pdf">PDF</span>
+        <div class="file-info">
+          <div class="file-name">企业内网网关升级技术方案 v2.1.pdf</div>
+          <div class="file-meta num">2.4 MB · 张伟 上传于 2024-03-12 16:42</div>
+        </div>
+        <div class="file-ops">
+          <button class="link-btn">下载</button>
+          <button class="link-btn danger">删除</button>
+        </div>
+      </div>
+
+      <div class="file-row">
+        <span class="file-icon fi-xlsx">XLSX</span>
+        <div class="file-info">
+          <div class="file-name">网关迁移灰度观察数据.xlsx</div>
+          <div class="file-meta num">186 KB · 王强 上传于 2024-03-18 14:20</div>
+        </div>
+        <div class="file-ops">
+          <button class="link-btn">下载</button>
+          <button class="link-btn danger">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作时间线 -->
+    <div class="d-sec">
+      <div class="sec-title">操作时间线</div>
+      <div class="timeline">
+
+        <div class="tl-item">
+          <span class="tl-dot" style="background:var(--st-doing)"></span>
+          <div class="tl-head">
+            <span class="tl-action">更新进度</span>
+            <span class="tl-actor">王强</span>
+            <span class="tl-time num">2024-03-18 14:22</span>
+          </div>
+          <div class="tl-note">进度更新至 <span class="pct">45%</span>：网关核心路由已迁移，剩余鉴权模块</div>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-dot" style="background:var(--st-doing)"></span>
+          <div class="tl-head">
+            <span class="tl-action">转派任务</span>
+            <span class="tl-actor">张伟</span>
+            <span class="tl-time num">2024-03-15 10:05</span>
+          </div>
+          <div class="tl-note">处理人由 张伟 变更为 王强。转派说明：休假交接，迁移方案与 checklist 见附件，剩余鉴权模块改造待跟进</div>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-dot" style="background:var(--st-doing)"></span>
+          <div class="tl-head">
+            <span class="tl-action">上传附件</span>
+            <span class="tl-actor">张伟</span>
+            <span class="tl-time num">2024-03-12 16:42</span>
+          </div>
+          <div class="tl-note">上传《企业内网网关升级技术方案 v2.1.pdf》</div>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-dot" style="background:var(--st-doing)"></span>
+          <div class="tl-head">
+            <span class="tl-action">受理任务</span>
+            <span class="tl-actor">张伟</span>
+            <span class="tl-time num">2024-03-08 14:30</span>
+          </div>
+          <div class="tl-note">确认排期，计划 3 月第二周开始核心路由分批迁移</div>
+        </div>
+
+        <div class="tl-item">
+          <span class="tl-dot" style="background:var(--st-todo)"></span>
+          <div class="tl-head">
+            <span class="tl-action">创建任务</span>
+            <span class="tl-actor">李娜</span>
+            <span class="tl-time num">2024-03-08 11:12</span>
+          </div>
+          <div class="tl-note">通过网页端创建，优先级 P1，来源渠道：网页</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 关联邮件记录 -->
+    <div class="d-sec mail-sec" style="border-bottom:none">
+      <div class="mail-head"><span class="arrow">▾</span>关联邮件记录<span class="cnt" style="color:var(--text-3);font-weight:400">（2）</span></div>
+      <div class="mail-list">
+        <div class="mail-row">
+          <span class="mail-to">收件人：王强</span>
+          <span class="mail-subject">【任务管理】任务转派 TSK-100118 企业内网网关升级</span>
+          <span class="mail-result">success</span>
+          <span class="mail-time num">2024-03-15 10:05</span>
+        </div>
+        <div class="mail-row">
+          <span class="mail-to">收件人：李娜</span>
+          <span class="mail-subject">【任务管理】任务转派 TSK-100118 企业内网网关升级</span>
+          <span class="mail-result">success</span>
+          <span class="mail-time num">2024-03-15 10:05</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
