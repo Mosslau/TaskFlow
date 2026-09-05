@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "skills": {
+    "api-design-principles": {
+      "source": "git@github.com:wshobson/agents",
+      "sourceUrl": "git@github.com:wshobson/agents",
+      "sourceType": "git",
+      "skillPath": "plugins/backend-development/skills/api-design-principles/SKILL.md",
+      "computedHash": "19715a3a3ff7bf7b1e2ab1cb631ebe810d5b050ed6b3ab0c358e39e5e2e6d33a"
+    },
+    "brainstorming": {
+      "source": "git@github.com:obra/superpowers",
+      "sourceUrl": "git@github.com:obra/superpowers",
+      "sourceType": "git",
+      "skillPath": "skills/brainstorming/SKILL.md",
+      "computedHash": "b58d55b64742ecd37923985ec7bdfbe678ffbcb9895562abd28c0a32dcacd7fb"
+    },
+    "frontend-design": {
+      "source": "git@github.com:anthropics/skills",
+      "sourceUrl": "git@github.com:anthropics/skills",
+      "sourceType": "git",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "89496d5dd00f4810205f351759594fc2742bf8eea85a2f2b2d1de59f4bd91576"
+    },
+    "java-springboot": {
+      "source": "git@github.com:github/awesome-copilot",
+      "sourceUrl": "git@github.com:github/awesome-copilot",
+      "sourceType": "git",
+      "skillPath": "skills/java-springboot/SKILL.md",
+      "computedHash": "f1b9c6b1277178fc33e5a612761c1cd1cf6ab5f946d05d69d52026d142c0a0c1"
+    },
+    "microservices-patterns": {
+      "source": "git@github.com:wshobson/agents",
+      "sourceUrl": "git@github.com:wshobson/agents",
+      "sourceType": "git",
+      "skillPath": "plugins/backend-development/skills/microservices-patterns/SKILL.md",
+      "computedHash": "60bd815acd83afe78021284d960010d87e7ab785dc01b2d10794f08773ab597f"
+    },
+    "mysql": {
+      "source": "git@github.com:planetscale/database-skills",
+      "sourceUrl": "git@github.com:planetscale/database-skills",
+      "sourceType": "git",
+      "skillPath": "skills/mysql/SKILL.md",
+      "computedHash": "6cb0725d61db4940f9eab79436753fe4ecb261f57ae8a08b2ac28676f82cbecc"
+    },
+    "postgresql-table-design": {
+      "source": "git@github.com:wshobson/agents",
+      "sourceUrl": "git@github.com:wshobson/agents",
+      "sourceType": "git",
+      "skillPath": "plugins/database-design/skills/postgresql-table-design/SKILL.md",
+      "computedHash": "c87d5cac33fbddc757fbb4b38a0098cff7dcf79201d40ddff2af76ec2724c5a1"
+    }
+  }
+}

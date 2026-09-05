@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="nar11FFmBbEHjFvmHPBbei">
+<head data-page-node-id="H5zjKKpzc999cLUJPtosUV">
+<meta charset="UTF-8" data-page-node-id="RsZwRPiuOVYcjbNHCAgNaZ">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="LGFUFOlciQXSLJU1qOlK2X">
+<title>任务管理系统 · 原型演示</title>
+<style>
+:root{
+  --primary:#2563eb; --primary-d:#1d4ed8; --primary-l:#eff6ff;
+  --success:#16a34a; --success-l:#ecfdf5;
+  --warn:#f59e0b; --warn-l:#fffbeb;
+  --danger:#dc2626; --danger-l:#fef2f2;
+  --purple:#7c3aed; --purple-l:#f5f3ff;
+  --cyan:#0891b2; --cyan-l:#ecfeff;
+  --ink:#0f172a; --gray-900:#111827; --gray-700:#374151; --gray-500:#6b7280;
+  --gray-400:#9ca3af; --gray-300:#d1d5db; --gray-200:#e5e7eb; --gray-100:#f3f4f6; --gray-50:#f9fafb;
+  --bg:#f5f7fb; --card:#ffffff;
+  --radius:14px; --radius-s:9px;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 4px 16px rgba(16,24,40,.06);
+  --shadow-l:0 10px 40px rgba(16,24,40,.16);
+  --side-w:228px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--gray-900); font-size:14px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+button,input,select,textarea{font-family:inherit;font-size:13px;color:inherit;outline:none}
+button{cursor:pointer;border:none;background:none}
+table{border-collapse:collapse;width:100%}
+ul{list-style:none}
+
+/* ============ 布局 ============ */
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:var(--side-w);flex:0 0 var(--side-w);
+  background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);
+  color:#cbd5e1;display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:60;
+}
+.brand{padding:20px 18px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand .logo{
+  width:34px;height:34px;border-radius:10px;flex:0 0 34px;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;box-shadow:0 4px 12px rgba(59,130,246,.45)
+}
+.brand h1{font-size:15px;color:#fff;font-weight:600;letter-spacing:.3px}
+.brand span{display:block;font-size:11px;color:#64748b;font-weight:400}
+.nav{padding:12px 10px;flex:1;overflow-y:auto}
+.nav-label{font-size:11px;color:#475569;padding:10px 10px 6px;letter-spacing:1px}
+.nav-item{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;
+  color:#cbd5e1;font-size:13.5px;margin-bottom:3px;transition:.16s;width:100%;text-align:left;
+}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:linear-gradient(90deg,rgba(37,99,235,.9),rgba(37,99,235,.55));color:#fff;box-shadow:0 4px 14px rgba(37,99,235,.35)}
+.nav-item .ic{width:18px;text-align:center;font-size:15px}
+.nav-item .badge{margin-left:auto;background:#dc2626;color:#fff;font-size:10px;padding:1px 6px;border-radius:20px;font-weight:600}
+.side-foot{padding:14px;border-top:1px solid rgba(255,255,255,.08)}
+.role-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:11px 12px}
+.role-card .t{font-size:10.5px;color:#94a3b8;letter-spacing:.5px;margin-bottom:7px}
+.role-card select{
+  width:100%;background:#1e293b;color:#fff;border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;padding:7px 8px;font-size:12.5px;cursor:pointer
+}
+.role-card .hint{font-size:10.5px;color:#64748b;margin-top:7px;line-height:1.5}
+
+.main{flex:1;margin-left:var(--side-w);min-width:0;display:flex;flex-direction:column}
+.topbar{
+  height:60px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:14px;
+  padding:0 22px;position:sticky;top:0;z-index:50
+}
+.topbar h2{font-size:17px;font-weight:600}
+.topbar .sub{font-size:12px;color:var(--gray-500);font-weight:400;margin-left:8px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:600}
+.me{display:flex;align-items:center;gap:8px;font-size:13px}
+.me small{display:block;font-size:11px;color:var(--gray-500);font-weight:400}
+.view{padding:22px;display:none;animation:fadeUp .28s ease}
+.view.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ============ 通用组件 ============ */
+.card{background:var(--card);border:1px solid var(--gray-200);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-h{padding:15px 18px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-h h3{font-size:14.5px;font-weight:600}
+.card-h .desc{font-size:11.5px;color:var(--gray-400);font-weight:400}
+.card-b{padding:18px}
+.grid{display:grid;gap:16px}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;font-size:12.5px;
+  font-weight:500;transition:.15s;border:1px solid transparent;white-space:nowrap
+}
+.btn-p{background:var(--primary);color:#fff}
+.btn-p:hover{background:var(--primary-d);box-shadow:0 4px 12px rgba(37,99,235,.3)}
+.btn-g{background:#fff;border-color:var(--gray-300);color:var(--gray-700)}
+.btn-g:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-l)}
+.btn-d{background:var(--danger-l);border-color:#fecaca;color:var(--danger)}
+.btn-d:hover{background:#fee2e2}
+.btn-s{background:var(--success-l);border-color:#bbf7d0;color:var(--success)}
+.btn-s:hover{background:#dcfce7}
+.btn-sm{padding:4px 9px;font-size:11.5px;border-radius:7px}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.4)}
+.btn:disabled:hover{box-shadow:none;background:#fff;border-color:var(--gray-300);color:var(--gray-700)}
+.inp,select.inp,textarea.inp{
+  width:100%;padding:8px 11px;border:1px solid var(--gray-300);border-radius:9px;background:#fff;
+  transition:.15s;font-size:13px
+}
+.inp:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+textarea.inp{resize:vertical;min-height:74px;line-height:1.6}
+label.fl{display:block;font-size:12px;color:var(--gray-500);margin-bottom:5px;font-weight:500}
+.fg{margin-bottom:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tabs{display:inline-flex;background:var(--gray-100);padding:3px;border-radius:10px;gap:2px}
+.tabs button{padding:6px 14px;border-radius:8px;font-size:12.5px;color:var(--gray-500);font-weight:500;transition:.15s}
+.tabs button:hover{color:var(--gray-900)}
+.tabs button.active{background:#fff;color:var(--primary);box-shadow:0 1px 4px rgba(0,0,0,.1);font-weight:600}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap}
+.t-P0{background:#fef2f2;color:#dc2626}
+.t-P1{background:#fff7ed;color:#ea580c}
+.t-P2{background:#eff6ff;color:#2563eb}
+.t-P3{background:#f3f4f6;color:#6b7280}
+.t-new{background:#eff6ff;color:#2563eb}
+.t-doing{background:#fffbeb;color:#b45309}
+.t-wait{background:#f5f3ff;color:#7c3aed}
+.t-done{background:#ecfdf5;color:#16a34a}
+.t-close{background:#f3f4f6;color:#6b7280}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex:0 0 6px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--gray-200);border-radius:20px;font-size:11.5px;background:#fff}
+.mini{font-size:11.5px;color:var(--gray-400)}
+.muted{color:var(--gray-500)}
+.empty{text-align:center;padding:44px 20px;color:var(--gray-400)}
+.empty .ic{font-size:38px;margin-bottom:10px;opacity:.5}
+
+/* ============ 统计卡 ============ */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:14px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.kpi::after{content:"";position:absolute;right:-18px;top:-18px;width:74px;height:74px;border-radius:50%;background:var(--c);opacity:.07}
+.kpi .k-t{font-size:12px;color:var(--gray-500);display:flex;align-items:center;gap:6px}
+.kpi .k-v{font-size:27px;font-weight:700;margin:6px 0 2px;letter-spacing:-.5px;color:var(--ink)}
+.kpi .k-v small{font-size:13px;font-weight:500;color:var(--gray-400);margin-left:3px}
+.kpi .k-f{font-size:11.5px;color:var(--gray-400)}
+.kpi .up{color:var(--success);font-weight:600}
+.kpi .down{color:var(--danger);font-weight:600}
+.kpi .k-ic{position:absolute;right:14px;top:14px;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:var(--c);color:#fff;opacity:.9}
+
+/* ============ 表格 ============ */
+.tbl-wrap{overflow-x:auto}
+.tbl{font-size:13px;min-width:1000px}
+.tbl th{
+  text-align:left;padding:11px 13px;background:var(--gray-50);color:var(--gray-500);
+  font-size:11.5px;font-weight:600;letter-spacing:.4px;border-bottom:1px solid var(--gray-200);white-space:nowrap
+}
+.tbl td{padding:11px 13px;border-bottom:1px solid var(--gray-100);vertical-align:middle}
+.tbl tbody tr{transition:.12s}
+.tbl tbody tr:hover{background:var(--primary-l)}
+.tbl .t-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--gray-500)}
+.tbl .t-title{font-weight:500;color:var(--gray-900);max-width:290px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.tbl .t-title:hover{color:var(--primary);text-decoration:underline}
+.ops{display:flex;gap:5px;flex-wrap:wrap}
+.bar{height:6px;background:var(--gray-200);border-radius:6px;overflow:hidden;width:76px}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+.bar.warn i{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.bar.done i{background:linear-gradient(90deg,#16a34a,#4ade80)}
+.who{display:flex;align-items:center;gap:6px}
+.who .av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:600;flex:0 0 22px}
+.filters{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.filters .inp{width:auto;min-width:118px}
+.pager{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:13px 16px;font-size:12.5px;color:var(--gray-500)}
+.pager button{padding:4px 10px;border:1px solid var(--gray-300);border-radius:7px;font-size:12px}
+.pager button:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+.pager button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+
+/* ============ 图表 ============ */
+.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12px;color:var(--gray-700)}
+.chart-legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px}
+.donut-wrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
+.donut-center{text-anchor:middle}
+.hbar{margin-bottom:12px}
+.hbar .h-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+.hbar .h-bg{height:9px;background:var(--gray-100);border-radius:9px;overflow:hidden}
+.hbar .h-fill{height:100%;border-radius:9px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+svg .grid-line{stroke:var(--gray-100);stroke-width:1}
+svg .axis-t{fill:var(--gray-400);font-size:10.5px}
+svg .dot-pt{transition:.15s}
+svg .dot-pt:hover{r:5.5}
+
+/* ============ 日程 ============ */
+.cal-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--gray-100);flex-wrap:wrap}
+.cal-title{font-size:16px;font-weight:600;min-width:120px}
+.cal-nav{display:flex;gap:5px}
+.cal-nav button{width:30px;height:30px;border:1px solid var(--gray-300);border-radius:8px;display:grid;place-items:center;font-size:13px}
+.cal-nav button:hover{border-color:var(--primary);color:var(--primary)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-w{display:grid;grid-template-columns:repeat(7,1fr);background:var(--gray-50);border-bottom:1px solid var(--gray-200)}
+.cal-w div{padding:9px 0;text-align:center;font-size:11.5px;color:var(--gray-500);font-weight:600}
+.cal-d{
+  min-height:104px;border-right:1px solid var(--gray-100);border-bottom:1px solid var(--gray-100);
+  padding:5px 6px;cursor:pointer;transition:.13s;position:relative;overflow:hidden
+}
+.cal-d:hover{background:var(--primary-l)}
+.cal-d.other{background:var(--gray-50);color:var(--gray-300)}
+.cal-d.other .dnum{color:var(--gray-300)}
+.cal-d.sel{background:var(--primary-l);box-shadow:inset 0 0 0 2px var(--primary)}
+.cal-d.today .dnum{background:var(--primary);color:#fff;border-radius:50%;width:22px;height:22px;display:grid;place-items:center}
+.dnum{font-size:12.5px;font-weight:600;width:22px;height:22px;display:grid;place-items:center;color:var(--gray-700)}
+.ev{font-size:10.5px;padding:2px 6px;border-radius:5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;line-height:1.5}
+.ev.more{background:var(--gray-100);color:var(--gray-500);font-size:10px}
+.sched-day{padding:16px 18px}
+.sd-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.sd-head h4{font-size:15px}
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--gray-200)}
+.tl-i{position:relative;padding:0 0 16px}
+.tl-i::before{content:"";position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid var(--primary)}
+.tl-i.done::before{border-color:var(--success)}
+.tl-i.over::before{border-color:var(--danger)}
+.tl-time{font-size:11.5px;color:var(--gray-400);font-family:ui-monospace,Menlo,monospace}
+.tl-card{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:10px 12px;margin-top:5px}
+.tl-card:hover{border-color:var(--primary);background:#fff}
+
+/* ============ 权限 ============ */
+.perm-role{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:16px}
+.rc{border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px;background:#fff;position:relative;box-shadow:var(--shadow)}
+.rc.hl{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.rc h4{font-size:14px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rc .cnt{font-size:24px;font-weight:700;color:var(--ink)}
+.rc p{font-size:12px;color:var(--gray-500);margin-top:6px;line-height:1.6}
+.rc .cur{position:absolute;right:12px;top:12px;font-size:10.5px;background:var(--primary-l);color:var(--primary);padding:2px 8px;border-radius:20px;font-weight:600}
+.mx{font-size:12.5px;min-width:720px}
+.mx th{padding:11px 14px;background:var(--gray-50);font-size:11.5px;color:var(--gray-500);text-align:left;font-weight:600;border-bottom:1px solid var(--gray-200)}
+.mx td{padding:9px 14px;border-bottom:1px solid var(--gray-100);text-align:center}
+.mx td:first-child{text-align:left;font-weight:500}
+.mx th:not(:first-child){text-align:center}
+.mx tbody tr:hover{background:var(--gray-50)}
+.ck{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--gray-300);display:inline-grid;place-items:center;cursor:pointer;transition:.15s;color:#fff;font-size:11px;background:#fff}
+.ck.on{background:var(--success);border-color:var(--success)}
+.ck.lock{opacity:.35;cursor:not-allowed}
+.ck:hover:not(.lock){border-color:var(--primary)}
+.ck.on::after{content:"✓";font-weight:700}
+
+/* ============ 弹窗 / 抽屉 ============ */
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(3px);z-index:100;display:grid;place-items:center;padding:20px;animation:fadeIn .18s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{
+  background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow:auto;
+  box-shadow:var(--shadow-l);animation:pop .22s cubic-bezier(.34,1.4,.64,1)
+}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:none}}
+.modal.wide{max-width:720px}
+.m-h{padding:16px 20px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center}
+.m-h h3{font-size:15.5px;font-weight:600}
+.m-h .x{margin-left:auto;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--gray-400);font-size:17px}
+.m-h .x:hover{background:var(--gray-100);color:var(--gray-900)}
+.m-b{padding:20px}
+.m-f{padding:14px 20px;border-top:1px solid var(--gray-100);display:flex;gap:9px;justify-content:flex-end;background:var(--gray-50);border-radius:0 0 16px 16px}
+.drawer{
+  position:fixed;right:0;top:0;bottom:0;width:min(560px,100%);background:#fff;z-index:101;
+  box-shadow:-10px 0 40px rgba(16,24,40,.18);display:flex;flex-direction:column;animation:slideIn .26s cubic-bezier(.4,0,.2,1)
+}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:none}}
+.d-h{padding:17px 20px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:10px}
+.d-b{flex:1;overflow-y:auto;padding:20px}
+.d-f{padding:14px 20px;border-top:1px solid var(--gray-100);display:flex;gap:9px;background:var(--gray-50)}
+.sec-t{font-size:12px;font-weight:600;color:var(--gray-500);letter-spacing:.5px;margin:20px 0 11px;display:flex;align-items:center;gap:7px}
+.sec-t::before{content:"";width:3px;height:12px;background:var(--primary);border-radius:3px}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:9px 12px;font-size:13px}
+.kv dt{color:var(--gray-400);font-size:12px}
+.kv dd{color:var(--gray-900)}
+.tl2{position:relative;padding-left:20px;margin-top:6px}
+.tl2::before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--gray-200)}
+.tl2-i{position:relative;padding-bottom:16px;font-size:12.5px}
+.tl2-i::before{content:"";position:absolute;left:-18px;top:5px;width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid var(--gray-300)}
+.tl2-i.hi::before{border-color:var(--primary)}
+.tl2-i .mt{font-size:11px;color:var(--gray-400);font-family:ui-monospace,Menlo,monospace}
+.mail-prev{background:var(--gray-50);border:1px dashed var(--gray-300);border-radius:10px;padding:13px;font-size:12.5px;line-height:1.8}
+.mail-prev .mh{display:flex;gap:8px;border-bottom:1px dashed var(--gray-300);padding-bottom:7px;margin-bottom:7px;font-size:12px}
+.mail-prev .mh b{color:var(--gray-500);font-weight:500;min-width:38px}
+.mail-prev .mb{white-space:pre-wrap;color:var(--gray-700)}
+#toast-root{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{
+  background:#0f172a;color:#fff;padding:10px 18px;border-radius:11px;font-size:13px;
+  box-shadow:var(--shadow-l);display:flex;align-items:center;gap:9px;animation:tin .3s cubic-bezier(.34,1.4,.64,1);max-width:88vw
+}
+@keyframes tin{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:none}}
+.toast.ok{background:#15803d}
+.toast.err{background:#b91c1c}
+.toast.info{background:#1e40af}
+.note{background:var(--primary-l);border:1px solid #bfdbfe;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1e40af;line-height:1.7;margin-bottom:16px}
+.note b{font-weight:600}
+.chk{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:5px 0}
+.chk input{width:15px;height:15px;accent-color:var(--primary);cursor:pointer}
+.range{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--gray-500);flex-wrap:wrap}
+@media(max-width:900px){
+  .sidebar{width:100%;flex:none;position:relative;height:auto}
+  .app{flex-direction:column}
+  .main{margin-left:0}
+  .nav{display:flex;overflow-x:auto;padding:8px}
+  .nav-label,.nav-item span.tx{display:none}
+  .nav-item{flex-direction:column;gap:2px;font-size:10.5px;padding:8px 14px;text-align:center}
+  .nav-item .badge{display:none}
+  .side-foot{position:relative}
+  .view{padding:14px}
+  .topbar{padding:0 14px}
+  .row2{grid-template-columns:1fr}
+  .kpi .k-v{font-size:23px}
+  .cal-d{min-height:74px}
+  .ev{font-size:9.5px}
+}
+</style>
+</head>
+<body data-page-node-id="nzSBM9Si3RR2gdW2WwKLBp">
+<div class="app" data-page-node-id="2DtWpryGcbRUi5IM5qnYab">
+  <aside class="sidebar" data-page-node-id="IeAbvJrgR8OBKvMwHE8gBT">
+    <div class="brand" data-page-node-id="VH1piAAbT9klrMOZYvn4sy">
+      <div class="logo" data-page-node-id="Rv3ZKZKutb5YCzmT3Gxque">任</div>
+      <div data-page-node-id="SE3old2Q7OcgrTNOHibAuA"><h1 data-page-node-id="3JSLaxfubFhlAmdxqCQZK1">任务管理系统</h1><span data-page-node-id="yJSxDyH4uSZNVE1VhjQCgT">TaskFlow · v2.0</span></div>
+    </div>
+    <nav class="nav" id="nav" data-page-node-id="jhHwWH8ikPzGQuoCkqMuqB">
+      <div class="nav-label" data-page-node-id="zkccufTOOlAneY6HzXEhxn">主导航</div>
+      <button class="nav-item active" data-view="overview" data-page-node-id="DQd6aBBFTrbVtblgJHbG0F"><span class="ic" data-page-node-id="RrJwvua0VwvzThTnE5HbEE">📊</span><span class="tx" data-page-node-id="XgInijlywjuW3B7zAEbU5Q">总览统计</span></button>
+      <button class="nav-item" data-view="tickets" data-page-node-id="2Fqmq88tIfDmhFBf58Cuvv"><span class="ic" data-page-node-id="nZHdV1yhUzMGJvAyaEDIiY">📋</span><span class="tx" data-page-node-id="XdcAMhkkgzcBiBBzyHTS7G">任务列表</span><span class="badge" id="nav-td-badge" data-page-node-id="gMc2PGn3mKESHmQp23ndHP">0</span></button>
+      <button class="nav-item" data-view="calendar" data-page-node-id="vjPY1aGMKxgk5QYzQLADfP"><span class="ic" data-page-node-id="MHddDEgR5n1Lqjngg6Sv0z">📅</span><span class="tx" data-page-node-id="CBcAVf2BDmF7kOHdgBZ9BE">日程</span></button>
+      <button class="nav-item" data-view="permission" data-page-node-id="Tu7yDJrJgjoologHaOuQpF"><span class="ic" data-page-node-id="OoMSMhg1FzKZwRCxm6DT6o">🔐</span><span class="tx" data-page-node-id="JffymclnxAgbIhQN3lYa9t">权限管理</span></button>
+    </nav>
+    <div class="side-foot" data-page-node-id="Es6JExkUefu2Zbi7xAU6Wc">
+      <div class="role-card" data-page-node-id="dwGpEE7nkJj1U6CcWJllaf">
+        <div class="t" data-page-node-id="HtDAeIDEy6aQDJBrB4JXIU">当前登录身份（切换体验权限差异）</div>
+        <select id="role-select" data-page-node-id="ueiKDzeHak4kHIAIT1fMk8"></select>
+        <div class="hint" id="role-hint" data-page-node-id="bk7NdSGhi2jtK3AAGPZk1b"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main" data-page-node-id="PUxajmwNt3ZOZAbaJsEPhX">
+    <header class="topbar" data-page-node-id="wWoaR3U0zCckeAwhx2lpVE">
+      <div data-page-node-id="b2RPzuPZE745Gxpd6dThFs"><h2 id="page-title" data-page-node-id="yYQ8DgUi5Babr8fSl8fJ3S">总览统计</h2><span class="sub" id="page-sub" data-page-node-id="GQ51KI71kG91WOebCA0Uy0">全量任务数据看板</span></div>
+      <div class="top-right" data-page-node-id="BxhpFnIns3Oo04t0fHi0wU">
+        <span class="pill" id="today-pill" data-page-node-id="YSJ3GwJpvqgE8hm6muUzAJ">📆 --</span>
+        <div class="me" data-page-node-id="tI73RXunAD2RIkBJygb6wG">
+          <div class="avatar" id="me-av" data-page-node-id="y7Uh7L2q34MwUTEPnrxH1O">-</div>
+          <div data-page-node-id="pqbr4rrLYjSWek3AK1zzww"><span id="me-name" data-page-node-id="45Dwo1jNkFtvUrihfIvADH">-</span><small id="me-role" data-page-node-id="4i7FnLjTQheFthjO17ruTP">-</small></div>
+        </div>
+      </div>
+    </header>
+
+    <section class="view active" id="view-overview" data-page-node-id="W6yG5DuFvkh0Z3maD4VRd9">
+      <div class="card" style="margin-bottom:16px" data-page-node-id="kYLfbGNNZFwbr11oQROJLT">
+        <div class="card-b" style="padding:13px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap" data-page-node-id="qbaNHGk3CoAsVAKwKSAImo">
+          <div class="tabs" id="range-tabs" data-page-node-id="emlbv6v3TGjvsTJwqLSOsz">
+            <button data-range="history" class="active" data-page-node-id="GSCtAIBD1hwZPwGtTemVM2">历史累计</button>
+            <button data-range="month" data-page-node-id="L4hCffRWcNnkSfvwGfaTNx">本月</button>
+            <button data-range="week" data-page-node-id="qVBEpMuu7VO7qlaGwEDVTu">本周</button>
+            <button data-range="custom" data-page-node-id="DQgVptVWhJC552NLBNV3CD">自定义</button>
+          </div>
+          <div class="range" id="custom-range" style="display:none" data-page-node-id="mpZeyQMYik7u6QvcXdMZHh">
+            <input type="date" class="inp" id="ds" style="width:145px" data-page-node-id="pFMO6oji3g7YkLuDvYpPNT">
+            <span data-page-node-id="9mEngLvjVy7G4GLqBBYtBy">至</span>
+            <input type="date" class="inp" id="de" style="width:145px" data-page-node-id="SKj5i0YSZXTLFz3VARpWov">
+            <button class="btn btn-p btn-sm" id="btn-apply-range" data-page-node-id="tlGfBpWDhlpgV1YBezTz44">应用</button>
+          </div>
+          <span class="mini" id="range-text" style="margin-left:auto" data-page-node-id="nn4YmbwJ255T2AQy5xFEDh"></span>
+        </div>
+      </div>
+      <div class="kpis" id="kpis" data-page-node-id="3aXx64tqRUE6I9tfPrnccF"></div>
+      <div class="grid" style="grid-template-columns:1.55fr 1fr;margin-bottom:16px" data-page-node-id="bSewmjCkfSjdYf8pP3d4Zk">
+        <div class="card" data-page-node-id="Nj1YUB5pXiELIZWPZAY3AJ"><div class="card-h" data-page-node-id="wFVGBaQWngZAISC6HbNO4Y"><h3 data-page-node-id="APdBSBEb1yOmRFrATGG3ow">任务趋势</h3><span class="desc" data-page-node-id="xbrP4M2V4rSttsVNn8vqca">新建 vs 完成</span></div><div class="card-b" id="chart-trend" data-page-node-id="xL0lcHaGi8MMRSDtw1yRUD"></div></div>
+        <div class="card" data-page-node-id="CcbNkK1Z7eoYtIFMlPBn6G"><div class="card-h" data-page-node-id="E5L2m5Y9lvpZpqkehEdZJY"><h3 data-page-node-id="kvAZroPlHwpqN1pPUoqdZB">状态分布</h3></div><div class="card-b" data-page-node-id="N2fld5uw8KfZcKuhXBvj1V"><div class="donut-wrap" id="chart-status" data-page-node-id="JElUw26ihvt7WxWd3pOB1e"></div></div></div>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr 1fr" data-page-node-id="NJECcyZHKaIRIVU9aNPGMX">
+        <div class="card" data-page-node-id="hkPhtzoyZdhwkWkLBN4Sng"><div class="card-h" data-page-node-id="4X1qtMnZ5l9UQqcQ7JVU3r"><h3 data-page-node-id="40PBvRADnZPX8fDHFFP31D">优先级分布</h3></div><div class="card-b" id="chart-prio" data-page-node-id="Mn4JMzNUsOE0alcOK9qYI5"></div></div>
+        <div class="card" data-page-node-id="MS1pMHdNaPxHnyrEkVaIdy"><div class="card-h" data-page-node-id="DfpW2I4DWqBlCZ3McPFirr"><h3 data-page-node-id="jDAsNYMbGorbdUNSEzUz09">负责人负载</h3><span class="desc" data-page-node-id="YFafFvCopfnqX0o5aPwdAm">未完成任务数</span></div><div class="card-b" id="chart-load" data-page-node-id="XSO5Sygi2ISRaZWPrWbXPA"></div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-tickets" data-page-node-id="xNY2yvgRfNHFCk7qn6QC2t">
+      <div class="card" data-page-node-id="NOXWwGRkvFaph45sXkbo7C">
+        <div class="card-h" data-page-node-id="DRB1wv2DxOHMKNx5MwQBOB">
+          <h3 data-page-node-id="clC7kmeqaxNLcuZDL95slp">任务列表</h3>
+          <span class="desc" id="tk-count" data-page-node-id="ZMNsIe8Z08F6QHZv7ClcbP"></span>
+          <div style="margin-left:auto;display:flex;gap:8px" data-page-node-id="SV74zggWPBFrkHzpg7dzOn">
+            <button class="btn btn-p btn-sm" id="btn-new-ticket" data-page-node-id="TlVq4GhTWHAekD3lqdBVvF">＋ 新建任务</button>
+            <button class="btn btn-g btn-sm" id="btn-export" data-page-node-id="MHZDUqD95MCk27jVBj3KYC">⤓ 导出 CSV</button>
+          </div>
+        </div>
+        <div class="card-b" style="border-bottom:1px solid var(--gray-100);padding:13px 16px" data-page-node-id="ood89xGnAimP57FZknKBQA">
+          <div class="filters" data-page-node-id="9Kx0oZDRb4ed7mu07HMtYL">
+            <input class="inp" id="f-kw" placeholder="🔍 搜索标题/编号/描述" style="min-width:200px" data-page-node-id="NSGFS3QrX0M1fKpKR4Uwlp">
+            <select class="inp" id="f-status" data-page-node-id="tp6ST3sI7XOgDBc6XWfoDt"><option value="" data-page-node-id="OVgFKUgYavxem5mZTmS1Df">全部状态</option></select>
+            <select class="inp" id="f-prio" data-page-node-id="hWsU9a9ZAiixPGPfu022qf"><option value="" data-page-node-id="mQBMYUUFoUiteUjRHdZ1AR">全部优先级</option></select>
+            <select class="inp" id="f-type" data-page-node-id="XomcXDRFGaOVA7rQ7Jh4Mj"><option value="" data-page-node-id="ASxZJv0FmWkGliHA6RxdNr">全部类型</option></select>
+            <select class="inp" id="f-assignee" data-page-node-id="F8l9FlPu5L8D3wtQVFmr1s"><option value="" data-page-node-id="zFqnqQJVMwSb7nyxMqUrJW">全部负责人</option></select>
+            <select class="inp" id="f-scope" data-page-node-id="H8QfQWk0VygvKMrqPSwE3D">
+              <option value="all" data-page-node-id="g0rubI3jY3Z0VonxF7LaMM">全部任务</option>
+              <option value="mine_assigned" data-page-node-id="jwVtrabOSXtM1YCsCOQ9ME">指派给我</option>
+              <option value="mine_created" data-page-node-id="xJOvxhB3AtSZ2ixHAiMofE">我创建的</option>
+              <option value="overdue" data-page-node-id="5EUM7wCKuPudaDvthtn080">已逾期</option>
+            </select>
+            <button class="btn btn-g btn-sm" id="btn-reset" data-page-node-id="hlV8f9UwlCUwA3nw7joQf1">重置</button>
+          </div>
+        </div>
+        <div class="tbl-wrap" data-page-node-id="CMgfYqTadApbiIEtAWWWTP"><table class="tbl" id="ticket-tbl" data-page-node-id="XgVU99PFyIbg3uZj0M8n3b"></table></div>
+        <div class="pager" id="pager" data-page-node-id="IB9MXTQBGV9SwN4NsAWh1C"></div>
+      </div>
+      <div class="note" id="tk-note" style="margin-top:16px" data-page-node-id="KZwAppiUd8zI3dIiRNV1Xx"></div>
+    </section>
+
+    <section class="view" id="view-calendar" data-page-node-id="WvScUGyHZzpfbSEqgg1mp2">
+      <div class="grid" style="grid-template-columns:1.35fr 1fr" data-page-node-id="RpcAcvRn5w4PipS30tIfZI">
+        <div class="card" data-page-node-id="k7u80fiNQLxfp914hEg9CF">
+          <div class="cal-head" data-page-node-id="fBvtfHumeeVklP4vYJgcsT">
+            <div class="cal-nav" data-page-node-id="DQ0cXohuYDx15aY7EOAQgT">
+              <button id="cal-prev" data-page-node-id="dBCliZrbbpg129fdQYfBXC">‹</button><button id="cal-next" data-page-node-id="7SZEO2cPCvf3gMARen30GF">›</button>
+              <button class="btn btn-g btn-sm" id="cal-today" style="height:30px" data-page-node-id="Uc6QqsfGs5FGB9AKILtsXZ">今天</button>
+            </div>
+            <div class="cal-title" id="cal-title" data-page-node-id="icpCmpXnNypHsNT0f1tZLW">-</div>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center" data-page-node-id="FIz2yrQSAD8JCuAdjpdvqx">
+              <label class="chk" data-page-node-id="AOULZZXhYziHl78GCaDHM1"><input type="checkbox" id="cal-only-mine" data-page-node-id="v45BcTJeTO6E1yeHzGCTZJ">只看我的</label>
+              <span class="mini" id="cal-stat" data-page-node-id="frHgzp6GktW8zDXQ0OmoCi"></span>
+            </div>
+          </div>
+          <div class="cal-w" data-page-node-id="bdIRRR5dwsWAnYkNAIgOpp"><div data-page-node-id="ACOOyCb24OOdDIOl5nSXdY">一</div><div data-page-node-id="ZB9jvY7pXP28ZfDZo1IfFo">二</div><div data-page-node-id="AVfTC3IJqY55IEGR4hA0Eg">三</div><div data-page-node-id="WjFam3g6R35RqZisgMo3nL">四</div><div data-page-node-id="boT6caepMBLHMTsVJTsIJv">五</div><div data-page-node-id="trSLx4YOi02oCVCWMwrKQ9">六</div><div data-page-node-id="e3DT0BynJqPyyauA1vG72B">日</div></div>
+          <div class="cal" id="cal-grid" data-page-node-id="3oFg44jjdNqBG0bYLvhP6b"></div>
+        </div>
+        <div class="card" data-page-node-id="2MzjEzgMHerO6ZeYjH9IVI">
+          <div class="card-h" data-page-node-id="i7HmovhEAEROj5IjGVnvij"><h3 id="sched-title" data-page-node-id="nCBDaMuk6G26ATtbiR7ZUi">当日日程</h3><span class="desc" data-page-node-id="D9pX8BYeJBYLBKXEhsOspy">按到期时间排序</span></div>
+          <div class="sched-day" id="sched-panel" data-page-node-id="HupUx5vWD1K3CIGrvoaA1Q"></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:16px" data-page-node-id="3RKLFbcl9ULhmKbqSYw1OO">
+        📌 <b data-page-node-id="vDcltETiDvFmP0jw2jJGWO">说明</b>：日程按任务「到期时间」自动排布，逾期任务标红、已完成标绿；点击某天可查看当天全部任务安排，支持直接在此调整到期时间与优先级。
+      </div>
+    </section>
+
+    <section class="view" id="view-permission" data-page-node-id="m0TEmrpnTOR1vuOMlkFPzV">
+      <div class="perm-role" id="role-cards" data-page-node-id="srwfvp1qS9s0zM2MTtCEkh"></div>
+      <div class="card" style="margin-bottom:16px" data-page-node-id="fkLz7c6irHN6AbKHCsCoru">
+        <div class="card-h" data-page-node-id="Iz4u1qVy3pePwD0i7F6mBk">
+          <h3 data-page-node-id="KGRQeuKjBerhECyAW7rEK7">权限矩阵</h3><span class="desc" data-page-node-id="vRJLgsvI3SBJ7J4rUZEmAv">点击可实时调整（管理员行锁定为必选）</span>
+          <button class="btn btn-g btn-sm" id="btn-reset-perm" style="margin-left:auto" data-page-node-id="WniZeDNYlF7S5zUIL8NTcW">↺ 恢复默认</button>
+        </div>
+        <div class="tbl-wrap" data-page-node-id="2CyEHFwWf8kI3CtS7wLA9a"><table class="mx" id="perm-tbl" data-page-node-id="B1hdpn7ihl1UhGChQd2DQW"></table></div>
+      </div>
+      <div class="card" data-page-node-id="BBHP8C6O20yJNC1EMbVID2">
+        <div class="card-h" data-page-node-id="Z72gW6IIiMHP3DC885GZia"><h3 data-page-node-id="OJ1EjOkn393dFVUuHtoUUQ">用户与角色</h3><span class="desc" data-page-node-id="IGYrwKN9iyabV0oNYH224a">切换用户角色，实时影响全系统可操作范围</span></div>
+        <div class="tbl-wrap" data-page-node-id="cjiyfYgWkv3ZSADkuhlBti"><table class="mx" id="user-tbl" style="min-width:640px" data-page-node-id="7RjrSI0VWUEU5QplOiWMyq"></table></div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="modal-root" data-page-node-id="6mjSrM0FgWm1dYBto6fMm4"></div>
+<div id="drawer-root" data-page-node-id="4Ayb7MdwM581BPTT85Bwhb"></div>
+<div id="toast-root" data-page-node-id="WtC74Wuy6H8BoGVLgapQP7"></div>
+<script>
+/* =====================================================================
+ *  任务管理系统 · 模拟数据 + 权限引擎
+ * =====================================================================*/
+const TODAY = new Date(2026, 8, 5);           // 模拟「今天」= 2026-09-05（周六）
+const DAY = 86400000;
+
+/* ---------- 工具函数 ---------- */
+const pad = n => String(n).padStart(2, '0');
+const fmtD  = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fmtDT = d => `${fmtD(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const fmtT  = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const parseD = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => new Date(d.getTime() + n * DAY);
+const startOfWeek = d => { const x = new Date(d); const w = (x.getDay() + 6) % 7; x.setHours(0, 0, 0, 0); return addDays(x, -w); };
+const startOfMonth = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const daysBetween = (a, b) => Math.round((b - a) / DAY);
+const isSameDay = (a, b) => fmtD(a) === fmtD(b);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function ago(d) {
+  const m = Math.floor((TODAY - d) / 60000);
+  if (m < 60) return `${m}分钟前`;
+  if (m < 1440) return `${Math.floor(m / 60)}小时前`;
+  const dd = Math.floor(m / 1440);
+  if (dd < 30) return `${dd}天前`;
+  return `${Math.floor(dd / 30)}个月前`;
+}
+function relDue(d) {
+  const n = daysBetween(new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate()), new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+  if (n === 0) return '今天到期';
+  if (n === 1) return '明天到期';
+  if (n === -1) return '昨天逾期';
+  return n < 0 ? `逾期${-n}天` : `${n}天后`;
+}
+
+/* ---------- 角色与用户 ---------- */
+const ROLES = {
+  admin:       { key: 'admin',       name: '系统管理员', color: '#dc2626' },
+  taskAdmin: { key: 'taskAdmin', name: '任务管理员', color: '#2563eb' },
+  user:        { key: 'user',        name: '普通用户',   color: '#0891b2' }
+};
+const USERS = [
+  { id: 'u1', name: '陈慕白', role: 'admin',       dept: 'IT运营中心', email: 'chenmubai@corp.com', color: '#dc2626' },
+  { id: 'u2', name: '林知微', role: 'taskAdmin', dept: '客户成功部', email: 'linzhiwei@corp.com', color: '#2563eb' },
+  { id: 'u3', name: '赵屿川', role: 'taskAdmin', dept: '产品研发部', email: 'zhaoyuchuan@corp.com', color: '#7c3aed' },
+  { id: 'u4', name: '苏南舟', role: 'user',        dept: '技术支持组', email: 'sunanzho@corp.com',   color: '#0891b2' },
+  { id: 'u5', name: '周砚清', role: 'user',        dept: '技术支持组', email: 'zhouyanqing@corp.com',color: '#16a34a' },
+  { id: 'u6', name: '何星野', role: 'user',        dept: '市场部',     email: 'hexingye@corp.com',   color: '#ea580c' },
+  { id: 'u7', name: '郑晚棠', role: 'taskAdmin', dept: '运维保障部', email: 'zhengwant@corp.com',  color: '#db2777' },
+  { id: 'u8', name: '钱子昂', role: 'user',        dept: '财务部',     email: 'qianziang@corp.com',  color: '#ca8a04' }
+];
+const U = id => USERS.find(u => u.id === id) || { id, name: '未知', color: '#9ca3af', email: '-', dept: '-' };
+
+/* ---------- 权限点定义 ---------- */
+const PERM_DEFS = [
+  { key: 'viewAll',      name: '查看全部任务',   group: '任务' },
+  { key: 'create',       name: '创建任务',       group: '任务' },
+  { key: 'editOwn',      name: '编辑自己的任务', group: '任务' },
+  { key: 'deleteOwn',    name: '删除自己的任务', group: '任务' },
+  { key: 'transferOwn',  name: '转派自己的任务', group: '任务' },
+  { key: 'prioOwn',      name: '调整自己任务优先级', group: '任务' },
+  { key: 'dueOwn',       name: '调整自己任务到期时间', group: '任务' },
+  { key: 'viewAssigned', name: '查看指派给我的', group: '任务' },
+  { key: 'updateAssigned', name: '更新指派给我的进度', group: '任务' },
+  { key: 'transferAssigned', name: '转派指派给我的', group: '任务' },
+  { key: 'viewStats',    name: '查看统计总览',   group: '数据' },
+  { key: 'exportData',   name: '导出数据',       group: '数据' },
+  { key: 'manageUser',   name: '用户与角色管理', group: '系统' },
+  { key: 'setPerm',      name: '配置权限矩阵',   group: '系统' }
+];
+const DEFAULT_PERM = {
+  admin:       { viewAll: 1, create: 1, editOwn: 1, deleteOwn: 1, transferOwn: 1, prioOwn: 1, dueOwn: 1, viewAssigned: 1, updateAssigned: 1, transferAssigned: 1, viewStats: 1, exportData: 1, manageUser: 1, setPerm: 1 },
+  taskAdmin: { viewAll: 1, create: 1, editOwn: 1, deleteOwn: 1, transferOwn: 1, prioOwn: 1, dueOwn: 1, viewAssigned: 1, updateAssigned: 1, transferAssigned: 1, viewStats: 1, exportData: 1, manageUser: 0, setPerm: 0 },
+  user:        { viewAll: 0, create: 0, editOwn: 0, deleteOwn: 0, transferOwn: 0, prioOwn: 0, dueOwn: 0, viewAssigned: 1, updateAssigned: 1, transferAssigned: 1, viewStats: 0, exportData: 0, manageUser: 0, setPerm: 0 }
+};
+let PERM = JSON.parse(JSON.stringify(DEFAULT_PERM));
+
+let CURRENT = 'u1';   // 当前登录用户 id
+const me = () => U(CURRENT);
+const myRole = () => U(CURRENT).role;
+
+/* 核心鉴权：资源级（任务）权限判断 */
+function can(perm, ticket) {
+  const role = myRole();
+  if (!PERM[role][perm]) return false;
+  if (!ticket) return true;
+  const isCreator = ticket.creator === CURRENT;
+  const isAssignee = ticket.assignee === CURRENT;
+  // 管理员不受归属限制
+  if (role === 'admin') return true;
+  switch (perm) {
+    case 'viewAll':        return true;
+    case 'editOwn':
+    case 'deleteOwn':
+    case 'transferOwn':
+    case 'prioOwn':
+    case 'dueOwn':         return isCreator;
+    case 'viewAssigned':
+    case 'updateAssigned':
+    case 'transferAssigned': return isAssignee;
+    default: return true;
+  }
+}
+/* 该任务对当前用户是否可见 */
+function visible(t) {
+  const role = myRole();
+  if (role === 'admin' || (PERM[role].viewAll)) return true;
+  if (PERM[role].viewAssigned && t.assignee === CURRENT) return true;
+  if (PERM[role].editOwn && t.creator === CURRENT) return true;  // 自己的任务也要能看到
+  return false;
+}
+/* 给出拒绝原因，用于按钮提示 */
+function denyReason(perm, t) {
+  const role = myRole();
+  if (!PERM[role][perm]) return `${ROLES[role].name} 无「${PERM_DEFS.find(p => p.key === perm).name}」权限`;
+  if (perm === 'editOwn' || perm === 'deleteOwn' || perm === 'transferOwn' || perm === 'prioOwn' || perm === 'dueOwn')
+    return t.creator === CURRENT ? '' : '仅可操作自己创建的任务';
+  if (perm === 'viewAssigned' || perm === 'updateAssigned' || perm === 'transferAssigned')
+    return t.assignee === CURRENT ? '' : '仅可操作指派给自己的任务';
+  return '';
+}
+
+/* ---------- 枚举 ---------- */
+const STATUS = {
+  new:   { name: '待办', cls: 't-new',   color: '#2563eb' },
+  doing: { name: '进行中', cls: 't-doing', color: '#f59e0b' },
+  wait:  { name: '待验收', cls: 't-wait',  color: '#7c3aed' },
+  done:  { name: '已完成', cls: 't-done',  color: '#16a34a' },
+  close: { name: '已归档', cls: 't-close', color: '#9ca3af' }
+};
+const PRIO = {
+  P0: { name: 'P0 紧急', cls: 't-P0', color: '#dc2626', w: 4 },
+  P1: { name: 'P1 高',   cls: 't-P1', color: '#ea580c', w: 3 },
+  P2: { name: 'P2 中',   cls: 't-P2', color: '#2563eb', w: 2 },
+  P3: { name: 'P3 低',   cls: 't-P3', color: '#6b7280', w: 1 }
+};
+const TYPES = ['项目开发', '日常事务', '会议事项', '调研分析', '数据报表', '流程审批'];
+const OPEN_STATUS = ['new', 'doing', 'wait'];
+
+/* ---------- 任务数据生成 ---------- */
+const TITLES = {
+  '项目开发': ['完成用户中心登录模块开发', '重构消息网关鉴权中间件', '搭建前端 CI/CD 自动化流水线', '实现数据看板移动端适配', '修复订单列表分页丢失问题', '升级项目核心依赖版本', '开发周报自动汇总工具', '优化报表查询接口性能'],
+  '日常事务': ['整理部门月度工作总结', '跟进采购流程线上审批', '汇总本周项目进展周报', '组织团队月度复盘会议', '安排新员工入职引导', '更新部门通讯录与排班表', '盘点办公资产与耗材台账'],
+  '会议事项': ['准备产品评审会材料', '输出需求评审会议纪要', '跟进跨部门协调会行动项', '整理项目周会待办清单', '预约评审会议室并发出邀请', '收集复盘会改进反馈'],
+  '调研分析': ['输出竞品功能对比分析', '设计用户访谈提纲', '调研行业技术选型趋势', '评估低代码平台适用性', '分析重点用户流失特征', '梳理数据合规要求清单'],
+  '数据报表': ['生成月度经营数据报表', '核对季度营收关键指标', '清洗客户主数据字段', '输出渠道转化漏斗分析', '搭建实时业务监控大屏', '校验数据仓库调度任务'],
+  '流程审批': ['审批部门预算追加申请', '完成供应商准入评估', '发起合同用印申请', '处理共享空间权限开通', '复核报销单据异常项']
+};
+const DESCS = [
+  '任务目标与验收标准已明确，请按排期推进，完成后在任务中更新结果并知会相关方。',
+  '该事项依赖跨组资源，请先与依赖方对齐排期，遇阻塞及时在任务中更新说明。',
+  '已与相关方达成一致，请按方案执行，变更或延期前先同步干系人。',
+  '请做好过程记录与留痕，交付物完成后提交验收，确认无误再归档。',
+  '此项为周会新增行动项，优先级较高，请在本周内推进并反馈进展。',
+  '该事项需多方协同，请拆解为子步骤逐项跟进，避免遗漏关键环节。'
+];
+let seed = 20260905;
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+const pick = a => a[Math.floor(rnd() * a.length)];
+
+let TICKETS = [];
+let SEQ = 1001;
+function buildTimeline(t, created, status) {
+  const tl = [{ time: created, actor: t.creator, action: '创建任务', note: `提交了任务「${t.title}」` }];
+  let cur = new Date(created.getTime() + (0.5 + rnd() * 8) * 3600000);
+  if (status !== 'new') {
+    tl.push({ time: cur, actor: t.assignee, action: '受理任务', note: '已确认受理，开始处理' });
+    cur = new Date(cur.getTime() + (1 + rnd() * 14) * 3600000);
+  }
+  if (rnd() > .62 && status !== 'new') {
+    const to = pick(USERS.filter(u => u.role !== 'admin')).id;
+    tl.push({ time: cur, actor: t.assignee, action: '转派任务', note: `转派给 ${U(to).name}（已邮件通知）`, to });
+    t.assignee = to;
+    cur = new Date(cur.getTime() + (1 + rnd() * 8) * 3600000);
+  }
+  if (status === 'doing' || status === 'wait' || status === 'done' || status === 'close') {
+    tl.push({ time: cur, actor: t.assignee, action: '进行中', note: pick(['已完成方案拆解，进入执行阶段', '已完成主体工作，正在自测联调', '等待依赖方资源就绪后推进', '进展正常，预计可按时交付', '正在整理交付材料，准备提交验收']) });
+    cur = new Date(cur.getTime() + (2 + rnd() * 22) * 3600000);
+  }
+  if (status === 'wait' || status === 'done' || status === 'close') {
+    tl.push({ time: cur, actor: t.assignee, action: '待验收', note: '处理完成，等待创建人确认结果' });
+    cur = new Date(cur.getTime() + (1 + rnd() * 14) * 3600000);
+  }
+  if (status === 'done' || status === 'close') {
+    tl.push({ time: cur, actor: t.creator, action: '已完成', note: '已确认成果无误，任务验收完成' });
+  }
+  if (status === 'close') {
+    tl.push({ time: new Date(cur.getTime() + 2 * DAY), actor: t.assignee, action: '已归档', note: '任务归档' });
+  }
+  return tl;
+}
+function genTickets() {
+  const arr = [];
+  for (let i = 0; i < 68; i++) {
+    const type = pick(TYPES);
+    const title = pick(TITLES[type]);
+    // 创建时间：近 90 天（近期更密集，保证周/月视图数据饱满）
+    const created = new Date(addDays(TODAY, -Math.floor(Math.pow(rnd(), 2) * 88)).getTime() + Math.floor(rnd() * 86400) * 1000);
+    const status = (() => {
+      const r = rnd();
+      const age = daysBetween(created, TODAY);
+      if (age > 45) return r > .22 ? 'close' : 'done';
+      if (age > 14) return r > .5 ? 'done' : (r > .28 ? 'close' : 'doing');
+      if (age <= 3) return r > .3 ? 'new' : 'doing';   // 新提交的任务多数还未受理
+      return r > .66 ? 'new' : (r > .44 ? 'doing' : (r > .3 ? 'wait' : 'done'));
+    })();
+    const prio = (() => { const r = rnd(); return r > .88 ? 'P0' : r > .62 ? 'P1' : r > .3 ? 'P2' : 'P3'; })();
+    let creator = pick(USERS).id, assignee = pick(USERS.filter(u => u.role !== 'admin')).id;
+    if (assignee === creator) assignee = pick(USERS).id;
+    // 到期时间：创建的 1~14 天后，允许部分逾期
+    const dueBase = addDays(created, 1 + Math.floor(rnd() * 13));
+    const due = new Date(dueBase.getFullYear(), dueBase.getMonth(), dueBase.getDate(), 9 + Math.floor(rnd() * 10), pick([0, 15, 30, 45]));
+    if (status === 'done' || status === 'close') {
+      if (rnd() > .5) due.setTime(created.getTime() + (2 + rnd() * 8) * DAY);
+    }
+    const progress = status === 'new' ? 0 : status === 'doing' ? 20 + Math.floor(rnd() * 55)
+      : status === 'wait' ? 80 + Math.floor(rnd() * 15) : 100;
+    const t = {
+      id: 'TSK-' + (SEQ++), title, desc: pick(DESCS), type,
+      status, priority: prio, creator, assignee,
+      createdAt: created, dueAt: due,
+      updatedAt: new Date(created.getTime() + (1 + rnd() * 40) * 3600000),
+      progress, source: pick(['手动创建', '企微同步', '会议指派', '邮件转办', 'Excel 导入', 'API 同步']),
+      mails: []
+    };
+    t.timeline = buildTimeline(t, created, status);
+    t.updatedAt = t.timeline[t.timeline.length - 1].time;
+    if (status === 'done' || status === 'close') {
+      // 约 28% 为逾期完成，其余按时完成
+      const late = rnd() > .72;
+      t.dueAt = new Date(t.updatedAt.getTime() + (late ? -(0.5 + rnd() * 3) * DAY : (0.5 + rnd() * 5) * DAY));
+    } else if (rnd() > .55 && daysBetween(created, TODAY) > 2) {
+      // 未完任务中约 45% 已逾期
+      const d = new Date(TODAY.getTime() - (0.4 + rnd() * 7) * DAY);
+      d.setHours(9 + Math.floor(rnd() * 10), pick([0, 15, 30, 45]));
+      t.dueAt = d;
+    }
+    arr.push(t);
+  }
+  arr.sort((a, b) => b.createdAt - a.createdAt);
+  return arr;
+}
+TICKETS = genTickets();
+
+/* ---------- 派生指标 ---------- */
+const isOverdue = t => OPEN_STATUS.includes(t.status) && t.dueAt < TODAY;
+const isDone = t => t.status === 'done' || t.status === 'close';
+function hoursOf(t) {
+  if (!isDone(t)) return null;
+  return (t.updatedAt - t.createdAt) / 3600000;
+}
+function onTime(t) {
+  if (!isDone(t)) return null;
+  return t.updatedAt <= t.dueAt;
+}
+</script>
+<script>
+/* =====================================================================
+ *  渲染层：统计图表 / 任务列表 / 日程 / 权限
+ * =====================================================================*/
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+/* ---------- Toast ---------- */
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<span>${type === 'ok' ? '✅' : type === 'err' ? '⚠️' : type === 'info' ? '📧' : '💡'}</span><span>${msg}</span>`;
+  $('#toast-root').appendChild(el);
+  setTimeout(() => { el.style.transition = '.35s'; el.style.opacity = 0; el.style.transform = 'translateY(-12px)'; }, 2400);
+  setTimeout(() => el.remove(), 2800);
+}
+
+/* ---------- 图表 ---------- */
+function lineChart(labels, series, w = 680, h = 250) {
+  const P = { t: 16, r: 14, b: 30, l: 34 };
+  const iw = w - P.l - P.r, ih = h - P.t - P.b;
+  const max = Math.max(4, ...series.flatMap(s => s.data));
+  const step = iw / Math.max(1, labels.length - 1);
+  const X = i => P.l + i * step;
+  const Y = v => P.t + ih - (v / max) * ih;
+  let g = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = P.t + (ih / 4) * i;
+    g += `<line class="grid-line" x1="${P.l}" y1="${y}" x2="${w - P.r}" y2="${y}"/>`;
+    g += `<text class="axis-t" x="${P.l - 7}" y="${y + 3.5}" text-anchor="end">${Math.round(max - (max / 4) * i)}</text>`;
+  }
+  const every = Math.ceil(labels.length / 9);
+  labels.forEach((lb, i) => {
+    if (i % every === 0 || i === labels.length - 1)
+      g += `<text class="axis-t" x="${X(i)}" y="${h - 9}" text-anchor="middle">${lb}</text>`;
+  });
+  series.forEach(s => {
+    const pts = s.data.map((v, i) => `${X(i)},${Y(v)}`).join(' ');
+    g += `<polygon points="${P.l},${P.t + ih} ${pts} ${X(s.data.length - 1)},${P.t + ih}" fill="${s.color}" opacity=".07"/>`;
+    g += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.data.forEach((v, i) => {
+      if (labels.length <= 40)
+        g += `<circle class="dot-pt" cx="${X(i)}" cy="${Y(v)}" r="3.2" fill="#fff" stroke="${s.color}" stroke-width="2"><title>${labels[i]} · ${s.name}：${v}</title></circle>`;
+    });
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block">
+    <defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6" stop-opacity=".22"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></linearGradient></defs>
+    ${g}</svg>`;
+}
+function donut(items, total) {
+  const size = 180, r = 66, cx = size / 2, cy = size / 2, C = 2 * Math.PI * r;
+  let off = 0, arcs = '';
+  items.forEach(it => {
+    if (!it.value) return;
+    const len = (it.value / (total || 1)) * C;
+    arcs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${it.color}" stroke-width="26"
+      stroke-dasharray="${len - 2} ${C - len + 2}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"
+      stroke-linecap="butt"><title>${it.label}：${it.value}（${Math.round(it.value / (total || 1) * 100)}%）</title></circle>`;
+    off += len;
+  });
+  let legend = items.map(it => `<div style="display:flex;align-items:center;gap:7px">
+      <i style="background:${it.color}"></i><span style="min-width:52px">${it.label}</span>
+      <b style="min-width:26px;text-align:right">${it.value}</b>
+      <span class="mini">${total ? Math.round(it.value / total * 100) : 0}%</span></div>`).join('');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex:0 0 ${size}px">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f3f4f6" stroke-width="26"/>
+      ${arcs}
+      <text class="donut-center" x="${cx}" y="${cy - 3}" font-size="26" font-weight="700" fill="#0f172a">${total}</text>
+      <text class="donut-center" x="${cx}" y="${cy + 17}" font-size="11" fill="#9ca3af">任务总数</text>
+    </svg>
+    <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">${legend}</div>`;
+}
+function hbar(items, max) {
+  return items.map(it => `<div class="hbar">
+      <div class="h-top"><span>${it.label}</span><b>${it.value}${it.suffix || ''}</b></div>
+      <div class="h-bg"><div class="h-fill" style="width:${max ? it.value / max * 100 : 0}%;background:${it.color}"></div></div>
+    </div>`).join('') || '<div class="empty">暂无数据</div>';
+}
+
+/* ---------- 日期范围 ---------- */
+let RANGE = 'history';
+let CUSTOM = { s: fmtD(addDays(TODAY, -30)), e: fmtD(TODAY) };
+function rangeBounds() {
+  if (RANGE === 'history') {
+    const ts = TICKETS.flatMap(t => [t.createdAt.getTime(), t.updatedAt.getTime()]);
+    const mn = new Date(Math.min(...ts)), mx = new Date(Math.max(...ts));
+    return { s: new Date(2020, 0, 1), e: new Date(2030, 0, 1), label: `全部历史数据（${fmtD(mn)} ~ ${fmtD(mx)}）` };
+  }
+  if (RANGE === 'month') return { s: startOfMonth(TODAY), e: new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, 1), label: `${TODAY.getFullYear()}年${TODAY.getMonth() + 1}月（${fmtD(startOfMonth(TODAY))} ~ 今天）` };
+  if (RANGE === 'week') return { s: startOfWeek(TODAY), e: addDays(startOfWeek(TODAY), 7), label: `本周（${fmtD(startOfWeek(TODAY))} ~ ${fmtD(addDays(startOfWeek(TODAY), 6))}）` };
+  return { s: parseD(CUSTOM.s), e: new Date(parseD(CUSTOM.e).getTime() + DAY), label: `自定义（${CUSTOM.s} ~ ${CUSTOM.e}）` };
+}
+function inRange(t) { const b = rangeBounds(); return t.createdAt >= b.s && t.createdAt < b.e; }
+
+/* ---------- 总览统计 ---------- */
+function renderOverview() {
+  const role = myRole();
+  if (!PERM[role].viewStats) {
+    $('#kpis').innerHTML = '';
+    ['chart-trend', 'chart-status', 'chart-prio', 'chart-load'].forEach(id => $('#' + id).innerHTML =
+      '<div class="empty"><div class="ic">🔒</div>当前角色（' + ROLES[role].name + '）无统计查看权限<br><span class="mini">可在「权限管理」中开启，或切换为管理员身份</span></div>');
+    $('#range-text').textContent = '—';
+    return;
+  }
+  const b = rangeBounds();
+  $('#range-text').textContent = '统计区间：' + b.label;
+  const list = TICKETS.filter(inRange);
+  const open = list.filter(t => OPEN_STATUS.includes(t.status));
+  const done = list.filter(isDone);
+  const overdue = list.filter(isOverdue);
+  const p0 = list.filter(t => t.priority === 'P0' && OPEN_STATUS.includes(t.status));
+  const hrs = done.map(hoursOf).filter(x => x != null);
+  const avgH = hrs.length ? hrs.reduce((a, c) => a + c, 0) / hrs.length : 0;
+  const ot = done.filter(onTime).length;
+  const rate = done.length ? ot / done.length * 100 : 0;
+
+  const K = [
+    { t: '任务总数', v: list.length, u: '项', f: `已完成 ${done.length} · 进行中 ${open.length}`, c: '#2563eb', ic: '📋' },
+    { t: '待办 / 进行中', v: open.length, u: '项', f: `待办 ${list.filter(t => t.status === 'new').length} · 进行中 ${list.filter(t => t.status === 'doing').length}`, c: '#f59e0b', ic: '⏳' },
+    { t: '已逾期', v: overdue.length, u: '项', f: overdue.length ? `<span class="down">需立即跟进</span>` : '暂无逾期任务', c: '#dc2626', ic: '⚠️' },
+    { t: '紧急任务 (P0)', v: p0.length, u: '项', f: `占比 ${list.length ? Math.round(p0.length / list.length * 100) : 0}%`, c: '#7c3aed', ic: '🔥' },
+    { t: '平均完成时长', v: avgH ? avgH.toFixed(1) : '0', u: '小时', f: `基于 ${done.length} 项已完成任务`, c: '#0891b2', ic: '⏱' },
+    { t: '按时完成率', v: rate.toFixed(0), u: '%', f: `${ot} / ${done.length} 项按时完成`, c: '#16a34a', ic: '🎯' }
+  ];
+  $('#kpis').innerHTML = K.map(k => `<div class="kpi" style="--c:${k.c}">
+      <div class="k-ic">${k.ic}</div>
+      <div class="k-t">${k.t}</div>
+      <div class="k-v">${k.v}<small>${k.u}</small></div>
+      <div class="k-f">${k.f}</div></div>`).join('');
+
+  // 趋势：按天（区间<=62天）否则按周
+  const span = daysBetween(b.s, b.e);
+  let labels = [], created = [], closed = [];
+  if (span <= 70) {
+    for (let d = new Date(b.s); d < b.e && d <= TODAY; d = addDays(d, 1)) {
+      const k = fmtD(d);
+      labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+      created.push(list.filter(t => fmtD(t.createdAt) === k).length);
+      closed.push(done.filter(t => isDone(t) && fmtD(t.updatedAt) === k).length);
+    }
+  } else {
+    for (let d = new Date(b.s); d < b.e && d <= TODAY; d = addDays(d, 7)) {
+      const e = addDays(d, 7), k = fmtD(d);
+      labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+      created.push(list.filter(t => t.createdAt >= d && t.createdAt < e).length);
+      closed.push(done.filter(t => t.updatedAt >= d && t.updatedAt < e).length);
+    }
+  }
+  $('#chart-trend').innerHTML = lineChart(labels, [
+    { name: '新建任务', color: '#2563eb', data: created },
+    { name: '完成任务', color: '#16a34a', data: closed }
+  ]) + `<div class="chart-legend"><span><i style="background:#2563eb"></i>新建任务 ${created.reduce((a, c) => a + c, 0)}</span>
+        <span><i style="background:#16a34a"></i>完成任务 ${closed.reduce((a, c) => a + c, 0)}</span></div>`;
+
+  const stItems = Object.keys(STATUS).map(k => ({ label: STATUS[k].name, value: list.filter(t => t.status === k).length, color: STATUS[k].color }));
+  $('#chart-status').innerHTML = donut(stItems, list.length);
+
+  const pItems = Object.keys(PRIO).map(k => ({ label: PRIO[k].name, value: list.filter(t => t.priority === k).length, color: PRIO[k].color }));
+  $('#chart-prio').innerHTML = hbar(pItems, Math.max(...pItems.map(i => i.value), 1));
+
+  const loads = USERS.filter(u => u.role !== 'admin').map(u => ({
+    label: `${u.name}<span class="mini"> · ${u.dept}</span>`,
+    value: list.filter(t => t.assignee === u.id && OPEN_STATUS.includes(t.status)).length,
+    color: u.color
+  })).sort((a, b) => b.value - a.value);
+  $('#chart-load').innerHTML = hbar(loads, Math.max(...loads.map(i => i.value), 1));
+}
+
+/* ---------- 任务列表 ---------- */
+const FILTER = { kw: '', status: '', prio: '', type: '', assignee: '', scope: 'all' };
+let PAGE = 1, PAGE_SIZE = 10;
+function filtered() {
+  return TICKETS.filter(t => {
+    if (!visible(t)) return false;
+    const kw = FILTER.kw.trim().toLowerCase();
+    if (kw && !(t.title + t.id + t.desc + U(t.assignee).name).toLowerCase().includes(kw)) return false;
+    if (FILTER.status && t.status !== FILTER.status) return false;
+    if (FILTER.prio && t.priority !== FILTER.prio) return false;
+    if (FILTER.type && t.type !== FILTER.type) return false;
+    if (FILTER.assignee && t.assignee !== FILTER.assignee) return false;
+    if (FILTER.scope === 'mine_assigned' && t.assignee !== CURRENT) return false;
+    if (FILTER.scope === 'mine_created' && t.creator !== CURRENT) return false;
+    if (FILTER.scope === 'overdue' && !isOverdue(t)) return false;
+    return true;
+  });
+}
+function renderTickets() {
+  const list = filtered();
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (PAGE > pages) PAGE = pages;
+  const page = list.slice((PAGE - 1) * PAGE_SIZE, PAGE * PAGE_SIZE);
+  $('#tk-count').textContent = `共 ${total} 条（当前可见 ${TICKETS.filter(visible).length} / 全部 ${TICKETS.length}）`;
+  $('#nav-td-badge').textContent = TICKETS.filter(t => visible(t) && OPEN_STATUS.includes(t.status)).length;
+
+  const canEdit = t => can('editOwn', t);
+  const canDel = t => can('deleteOwn', t);
+  const canTr = t => can('transferOwn', t) || can('transferAssigned', t);
+  const canPrio = t => can('prioOwn', t);
+  const canDue = t => can('dueOwn', t);
+  const canUpd = t => can('updateAssigned', t) || canEdit(t);
+
+  let html = `<thead><tr>
+    <th>编号</th><th>标题</th><th>类型</th><th>优先级</th><th>状态</th><th>进度</th>
+    <th>创建人</th><th>负责人</th><th>到期时间</th><th>更新</th><th style="min-width:210px">操作</th></tr></thead><tbody>`;
+  if (!page.length) {
+    html += `<tr><td colspan="11"><div class="empty"><div class="ic">🗂</div>没有符合条件的任务</div></td></tr>`;
+  }
+  page.forEach(t => {
+    const ov = isOverdue(t);
+    const dueCls = ov ? 'color:var(--danger);font-weight:600' : (isDone(t) ? 'color:var(--gray-400)' : '');
+    const barCls = t.progress >= 100 ? 'done' : (ov ? 'warn' : '');
+    html += `<tr>
+      <td class="t-id">${t.id}</td>
+      <td><div class="t-title" onclick="openDetail('${t.id}')" title="${esc(t.title)}">${esc(t.title)}</div>
+          <div class="mini">${t.source} · ${t.type}</div></td>
+      <td><span class="pill">${t.type}</span></td>
+      <td><span class="tag ${PRIO[t.priority].cls}">${PRIO[t.priority].name}</span></td>
+      <td><span class="tag ${STATUS[t.status].cls}">${STATUS[t.status].name}</span></td>
+      <td><div class="bar ${barCls}"><i style="width:${t.progress}%"></i></div><span class="mini">${t.progress}%</span></td>
+      <td><div class="who"><div class="av" style="background:${U(t.creator).color}">${t.creator && U(t.creator).name[0]}</div><span>${U(t.creator).name}</span></div></td>
+      <td><div class="who"><div class="av" style="background:${U(t.assignee).color}">${U(t.assignee).name[0]}</div><span>${U(t.assignee).name}</span></div></td>
+      <td style="${dueCls}">${fmtDT(t.dueAt)}<div class="mini" style="${dueCls}">${isDone(t) ? '已归档' : relDue(t.dueAt)}</div></td>
+      <td class="mini">${ago(t.updatedAt)}</td>
+      <td><div class="ops">
+        <button class="btn btn-g btn-sm" onclick="openDetail('${t.id}')">详情</button>
+        <button class="btn btn-g btn-sm" onclick="openEdit('${t.id}')" ${canEdit(t) ? '' : 'disabled title="' + denyReason('editOwn', t) + '"'}>编辑</button>
+        <button class="btn btn-g btn-sm" onclick="openTransfer('${t.id}')" ${canTr(t) ? '' : 'disabled title="' + (can('transferOwn', t) ? denyReason('transferOwn', t) : denyReason('transferAssigned', t)) + '"'}>转派</button>
+        <button class="btn btn-g btn-sm" onclick="quickPrio('${t.id}')" ${canPrio(t) ? '' : 'disabled title="' + denyReason('prioOwn', t) + '"'}>优先级</button>
+        <button class="btn btn-g btn-sm" onclick="quickDue('${t.id}')" ${canDue(t) ? '' : 'disabled title="' + denyReason('dueOwn', t) + '"'}>到期</button>
+        <button class="btn btn-d btn-sm" onclick="delTicket('${t.id}')" ${canDel(t) ? '' : 'disabled title="' + denyReason('deleteOwn', t) + '"'}>删除</button>
+      </div></td></tr>`;
+  });
+  html += '</tbody>';
+  $('#ticket-tbl').innerHTML = html;
+
+  let pg = `<span style="margin-right:auto">第 ${(PAGE - 1) * PAGE_SIZE + 1}-${Math.min(PAGE * PAGE_SIZE, total)} 条 / 共 ${total} 条</span>
+    <button ${PAGE === 1 ? 'disabled' : ''} onclick="goPage(${PAGE - 1})">上一页</button>`;
+  const shown = [];
+  for (let i = 1; i <= pages; i++) {
+    if (i === 1 || i === pages || Math.abs(i - PAGE) <= 1) shown.push(i);
+    else if (shown[shown.length - 1] !== '...') shown.push('...');
+  }
+  shown.forEach(i => pg += i === '...' ? '<span>…</span>' :
+    `<button class="${i === PAGE ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`);
+  pg += `<button ${PAGE === pages ? 'disabled' : ''} onclick="goPage(${PAGE + 1})">下一页</button>`;
+  $('#pager').innerHTML = pg;
+
+  const role = myRole();
+  const tips = {
+    admin: '当前为<b>系统管理员</b>：拥有最高权限，可查看与操作全部任务（创建 / 编辑 / 删除 / 转派 / 调整优先级与到期时间 / 导出），并管理用户、角色与权限矩阵。',
+    taskAdmin: '当前为<b>任务管理员</b>：可查看全部任务；对<b>自己创建</b>的任务可增删改、转派、调整优先级与到期时间；对<b>指派给自己</b>的任务可更新进度与再次转派；不可配置系统与权限。',
+    user: '当前为<b>普通用户</b>：仅可查看、更新进度、转派<b>指派给自己</b>的任务（转派会发送邮件通知）；不可创建任务，也看不到与自己无关的任务。'
+  };
+  $('#tk-note').innerHTML = `🔐 ${tips[role]}`;
+}
+const goPage = p => { PAGE = p; renderTickets(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+/* ---------- 日程 ---------- */
+let CAL_CUR = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+let CAL_SEL = new Date(TODAY);
+function calEventsOf(day) {
+  return TICKETS.filter(t => {
+    if (!visible(t)) return false;
+    if ($('#cal-only-mine') && $('#cal-only-mine').checked && t.assignee !== CURRENT) return false;
+    return isSameDay(t.dueAt, day);
+  }).sort((a, b) => a.dueAt - b.dueAt);
+}
+function renderCalendar() {
+  const y = CAL_CUR.getFullYear(), m = CAL_CUR.getMonth();
+  $('#cal-title').textContent = `${y} 年 ${m + 1} 月`;
+  const first = startOfMonth(CAL_CUR);
+  const start = startOfWeek(first);
+  let html = '', monthCount = 0;
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(start, i);
+    const evs = calEventsOf(d);
+    if (d.getMonth() === m) monthCount += evs.length;
+    const cls = ['cal-d'];
+    if (!isSameDay(d, first) && d.getMonth() !== m) cls.push('other');
+    if (isSameDay(d, TODAY)) cls.push('today');
+    if (isSameDay(d, CAL_SEL)) cls.push('sel');
+    let inner = `<div class="dnum">${d.getDate()}</div>`;
+    evs.slice(0, 3).forEach(t => {
+      const c = isDone(t) ? '#16a34a' : (isOverdue(t) ? '#dc2626' : U(t.assignee).color);
+      inner += `<div class="ev" style="background:${c}" title="${fmtT(t.dueAt)} ${esc(t.title)}">${fmtT(t.dueAt)} ${esc(t.title)}</div>`;
+    });
+    if (evs.length > 3) inner += `<div class="ev more">+${evs.length - 3} 个任务</div>`;
+    html += `<div class="${cls.join(' ')}" onclick="selectDay('${fmtD(d)}')">${inner}</div>`;
+  }
+  $('#cal-grid').innerHTML = html;
+  $('#cal-stat').textContent = `本月 ${monthCount} 个任务到期`;
+  renderSched();
+}
+function selectDay(ds) {
+  CAL_SEL = parseD(ds);
+  if (CAL_SEL.getMonth() !== CAL_CUR.getMonth() || CAL_SEL.getFullYear() !== CAL_CUR.getFullYear()) CAL_CUR = startOfMonth(CAL_SEL);
+  renderCalendar();
+}
+function renderSched() {
+  const evs = calEventsOf(CAL_SEL);
+  const wd = ['日', '一', '二', '三', '四', '五', '六'][CAL_SEL.getDay()];
+  $('#sched-title').textContent = `${CAL_SEL.getMonth() + 1}月${CAL_SEL.getDate()}日 · 周${wd}`;
+  if (!evs.length) {
+    $('#sched-panel').innerHTML = '<div class="empty"><div class="ic">🍃</div>这一天没有到期的任务</div>';
+    return;
+  }
+  let html = `<div class="sd-head"><h4>${evs.length} 个任务</h4>
+      <span class="mini">逾期 ${evs.filter(isOverdue).length} · 已完成 ${evs.filter(isDone).length}</span></div><div class="tl">`;
+  evs.forEach(t => {
+    const cls = isDone(t) ? 'done' : (isOverdue(t) ? 'over' : '');
+    html += `<div class="tl-i ${cls}">
+      <div class="tl-time">${fmtT(t.dueAt)} ${isOverdue(t) ? '<span style="color:var(--danger)">· 已逾期</span>' : ''}</div>
+      <div class="tl-card" onclick="openDetail('${t.id}')" style="cursor:pointer">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <span class="tag ${PRIO[t.priority].cls}">${PRIO[t.priority].name}</span>
+          <span class="tag ${STATUS[t.status].cls}">${STATUS[t.status].name}</span>
+          <b style="font-size:13px">${esc(t.title)}</b>
+        </div>
+        <div class="mini" style="margin-top:5px">${t.id} · ${t.type} · 负责人 ${U(t.assignee).name} · 进度 ${t.progress}%</div>
+        <div class="ops" style="margin-top:8px">
+          <button class="btn btn-g btn-sm" onclick="event.stopPropagation();quickDue('${t.id}')" ${can('dueOwn', t) ? '' : 'disabled'}>改期</button>
+          <button class="btn btn-g btn-sm" onclick="event.stopPropagation();quickPrio('${t.id}')" ${can('prioOwn', t) ? '' : 'disabled'}>优先级</button>
+          <button class="btn btn-g btn-sm" onclick="event.stopPropagation();openTransfer('${t.id}')" ${(can('transferOwn', t) || can('transferAssigned', t)) ? '' : 'disabled'}>转派</button>
+        </div>
+      </div></div>`;
+  });
+  $('#sched-panel').innerHTML = html + '</div>';
+}
+
+/* ---------- 权限管理 ---------- */
+function renderPermission() {
+  const role = myRole();
+  $('#role-cards').innerHTML = Object.values(ROLES).map(r => {
+    const n = USERS.filter(u => u.role === r.key).length;
+    const perms = Object.values(PERM[r.key]).filter(Boolean).length;
+    const d = {
+      admin: '系统最高权限：可查看与操作全部任务，管理用户、角色与权限矩阵。',
+      taskAdmin: '可查看全部任务；对自己创建的任务可增删改、转派与调整优先级/到期；对指派给自己的任务可更新进度与再转派。',
+      user: '仅可查看、更新、转派「指派给自己」的任务，不可创建任务。'
+    }[r.key];
+    return `<div class="rc ${r.key === role ? 'hl' : ''}">
+      ${r.key === role ? '<span class="cur">当前身份</span>' : ''}
+      <h4><span class="dot" style="background:${r.color};width:9px;height:9px"></span>${r.name}</h4>
+      <div class="cnt">${n}<span style="font-size:12px;color:var(--gray-400);font-weight:400"> 人</span></div>
+      <p>${d}</p>
+      <p class="mini">已开启 ${perms} / ${PERM_DEFS.length} 项权限</p>
+      <button class="btn ${r.key === role ? 'btn-g' : 'btn-p'} btn-sm" style="margin-top:10px" onclick="switchToRole('${r.key}')">${r.key === role ? '已是该身份' : '切换为此身份'}</button>
+    </div>`;
+  }).join('');
+
+  let h = `<thead><tr><th style="min-width:190px">权限项</th>${Object.values(ROLES).map(r => `<th>${r.name}</th>`).join('')}</tr></thead><tbody>`;
+  let lastGroup = '';
+  PERM_DEFS.forEach(p => {
+    if (p.group !== lastGroup) {
+      h += `<tr><td colspan="4" style="background:var(--gray-50);font-size:11px;color:var(--gray-500);font-weight:600;padding:7px 14px">${p.group}</td></tr>`;
+      lastGroup = p.group;
+    }
+    h += `<tr><td>${p.name}<div class="mini" style="font-weight:400">${p.key}</div></td>`;
+    Object.keys(ROLES).forEach(rk => {
+      const locked = rk === 'admin';
+      const on = PERM[rk][p.key];
+      const canSet = PERM[role].setPerm;
+      h += `<td><span class="ck ${on ? 'on' : ''} ${locked || !canSet ? 'lock' : ''}"
+        ${locked || !canSet ? `title="${locked ? '管理员权限不可关闭' : '需要「配置权限矩阵」权限'}"` : `onclick="togglePerm('${rk}','${p.key}')" title="点击切换"`}></span></td>`;
+    });
+    h += '</tr>';
+  });
+  $('#perm-tbl').innerHTML = h + '</tbody>';
+
+  let u = `<thead><tr><th>用户</th><th>部门</th><th>邮箱</th><th>角色</th><th>进行中</th><th>操作</th></tr></thead><tbody>`;
+  USERS.forEach(x => {
+    const doing = TICKETS.filter(t => t.assignee === x.id && OPEN_STATUS.includes(t.status)).length;
+    const canSet = PERM[role].manageUser;
+    u += `<tr>
+      <td><div class="who"><div class="av" style="background:${x.color}">${x.name[0]}</div>
+        <div>${x.name}${x.id === CURRENT ? ' <span class="pill" style="padding:1px 7px;font-size:10px">我</span>' : ''}</div></div></td>
+      <td class="muted">${x.dept}</td>
+      <td class="mini">${x.email}</td>
+      <td><select class="inp" style="padding:4px 8px;font-size:12px" ${canSet ? '' : 'disabled'} onchange="setUserRole('${x.id}',this.value)">
+        ${Object.values(ROLES).map(r => `<option value="${r.key}" ${x.role === r.key ? 'selected' : ''}>${r.name}</option>`).join('')}
+      </select></td>
+      <td><b>${doing}</b></td>
+      <td><button class="btn btn-g btn-sm" ${canSet ? '' : 'disabled'} onclick="loginAs('${x.id}')">以此身份登录</button></td>
+    </tr>`;
+  });
+  $('#user-tbl').innerHTML = u + '</tbody>';
+}
+function togglePerm(rk, key) {
+  if (rk === 'admin') return toast('管理员权限不可关闭', 'err');
+  if (!PERM[myRole()].setPerm) return toast('当前角色无权限配置权限矩阵', 'err');
+  PERM[rk][key] = PERM[rk][key] ? 0 : 1;
+  renderAll();
+  toast(`${ROLES[rk].name}「${PERM_DEFS.find(p => p.key === key).name}」已${PERM[rk][key] ? '开启' : '关闭'}`, PERM[rk][key] ? 'ok' : '');
+}
+function setUserRole(uid, rk) {
+  if (!PERM[myRole()].manageUser) return toast('无用户管理权限', 'err');
+  U(uid).role = rk;
+  renderPermission();
+  toast(`${U(uid).name} 的角色已改为「${ROLES[rk].name}」`, 'ok');
+  if (uid === CURRENT) renderAll();
+}
+function switchToRole(rk) {
+  const u = USERS.find(x => x.role === rk) || USERS[0];
+  loginAs(u.id, true);
+}
+function loginAs(uid, silent) {
+  CURRENT = uid;
+  $('#role-select').value = uid;
+  PAGE = 1;
+  renderAll();
+  if (!silent) toast(`已切换到「${U(uid).name}」（${ROLES[U(uid).role].name}）`, 'ok');
+  else toast(`已切换身份：${ROLES[U(uid).role].name} · ${U(uid).name}`, 'ok');
+}
+</script>
+<script>
+/* =====================================================================
+ *  交互层：弹窗 / 抽屉 / 转派邮件 / 初始化
+ * =====================================================================*/
+function closeModal() { $('#modal-root').innerHTML = ''; }
+function modal(title, body, footer, wide) {
+  $('#modal-root').innerHTML = `<div class="mask" style="z-index:120" onclick="if(event.target===this)closeModal()">
+    <div class="modal ${wide ? 'wide' : ''}">
+      <div class="m-h"><h3>${title}</h3><button class="x" onclick="closeModal()">×</button></div>
+      <div class="m-b">${body}</div>
+      <div class="m-f">${footer || '<button class="btn btn-g" onclick="closeModal()">取消</button>'}</div>
+    </div></div>`;
+}
+
+/* ---------- 新建 / 编辑任务 ---------- */
+function ticketForm(t) {
+  const isNew = !t;
+  const d = t || { title: '', desc: '', type: TYPES[0], priority: 'P2', status: 'new', assignee: USERS.find(u => u.role !== 'admin').id, dueAt: addDays(TODAY, 3), progress: 0 };
+  const dueD = fmtD(d.dueAt), dueT = fmtT(d.dueAt);
+  return `
+    <div class="fg"><label class="fl">任务标题 *</label><input class="inp" id="f-title" value="${esc(d.title)}" placeholder="简要描述要做什么"></div>
+    <div class="row2">
+      <div class="fg"><label class="fl">任务类型</label><select class="inp" id="f-type">${TYPES.map(x => `<option ${x === d.type ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">优先级</label><select class="inp" id="f-prio">${Object.keys(PRIO).map(k => `<option value="${k}" ${k === d.priority ? 'selected' : ''}>${PRIO[k].name}</option>`).join('')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label class="fl">负责人</label><select class="inp" id="f-assignee">${USERS.filter(u => u.role !== 'admin').map(u => `<option value="${u.id}" ${u.id === d.assignee ? 'selected' : ''}>${u.name}（${u.dept}）</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">状态</label><select class="inp" id="f-status">${Object.keys(STATUS).map(k => `<option value="${k}" ${k === d.status ? 'selected' : ''}>${STATUS[k].name}</option>`).join('')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label class="fl">到期日期</label><input type="date" class="inp" id="f-due-d" value="${dueD}"></div>
+      <div class="fg"><label class="fl">到期时间</label><input type="time" class="inp" id="f-due-t" value="${dueT}"></div>
+    </div>
+    <div class="fg"><label class="fl">完成进度：<b id="pg-v">${d.progress}</b>%</label>
+      <input type="range" class="inp" id="f-prog" min="0" max="100" step="5" value="${d.progress}" oninput="document.getElementById('pg-v').textContent=this.value" style="padding:0;border:none"></div>
+    <div class="fg"><label class="fl">任务描述</label><textarea class="inp" id="f-desc" placeholder="补充背景、目标与验收标准等">${esc(d.desc)}</textarea></div>`;
+}
+function readForm() {
+  const dd = $('#f-due-d').value || fmtD(TODAY), tt = $('#f-due-t').value || '18:00';
+  const [y, m, d] = dd.split('-').map(Number), [hh, mm] = tt.split(':').map(Number);
+  return {
+    title: $('#f-title').value.trim(), type: $('#f-type').value, priority: $('#f-prio').value,
+    status: $('#f-status').value, assignee: $('#f-assignee').value,
+    dueAt: new Date(y, m - 1, d, hh, mm), progress: +$('#f-prog').value, desc: $('#f-desc').value.trim()
+  };
+}
+function openNew() {
+  if (!can('create')) { toast(denyReason('create') || '当前角色不可创建任务', 'err'); return; }
+  modal('新建任务', ticketForm(null),
+    `<button class="btn btn-g" onclick="closeModal()">取消</button>
+     <button class="btn btn-p" onclick="saveNew()">创建任务</button>`);
+  setTimeout(() => $('#f-title').focus(), 60);
+}
+function saveNew() {
+  const f = readForm();
+  if (!f.title) { toast('请填写任务标题', 'err'); $('#f-title').focus(); return; }
+  const t = {
+    id: 'TSK-' + (SEQ++), ...f, creator: CURRENT, createdAt: new Date(TODAY.getTime()), updatedAt: new Date(),
+    source: '网页', mails: [],
+    timeline: [{ time: new Date(), actor: CURRENT, action: '创建任务', note: `提交了任务「${f.title}」` }]
+  };
+  TICKETS.unshift(t);
+  closeModal(); renderAll();
+  toast(`任务 ${t.id} 创建成功，已指派给 ${U(t.assignee).name}`, 'ok');
+  setTimeout(() => toast(`📧 通知邮件已发送至 ${U(t.assignee).email}`, 'info'), 700);
+  t.mails.push({ to: U(t.assignee).email, subject: `【新任务】${t.id} ${t.title}`, time: new Date() });
+}
+function openEdit(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!can('editOwn', t)) { toast(denyReason('editOwn', t), 'err'); return; }
+  modal(`编辑任务 · ${t.id}`, ticketForm(t),
+    `<button class="btn btn-g" onclick="closeModal()">取消</button>
+     <button class="btn btn-p" onclick="saveEdit('${id}')">保存修改</button>`);
+}
+function saveEdit(id) {
+  const t = TICKETS.find(x => x.id === id), f = readForm();
+  if (!f.title) { toast('请填写任务标题', 'err'); return; }
+  const changes = [];
+  if (t.title !== f.title) changes.push(`标题：${t.title} → ${f.title}`);
+  if (t.priority !== f.priority) changes.push(`优先级：${PRIO[t.priority].name} → ${PRIO[f.priority].name}`);
+  if (t.status !== f.status) changes.push(`状态：${STATUS[t.status].name} → ${STATUS[f.status].name}`);
+  if (t.assignee !== f.assignee) changes.push(`负责人：${U(t.assignee).name} → ${U(f.assignee).name}`);
+  if (fmtDT(t.dueAt) !== fmtDT(f.dueAt)) changes.push(`到期时间：${fmtDT(t.dueAt)} → ${fmtDT(f.dueAt)}`);
+  if (t.progress !== f.progress) changes.push(`进度：${t.progress}% → ${f.progress}%`);
+  Object.assign(t, f);
+  t.updatedAt = new Date();
+  if (changes.length) t.timeline.push({ time: new Date(), actor: CURRENT, action: '编辑任务', note: changes.join('；') });
+  closeModal(); renderAll();
+  toast(changes.length ? `已保存 ${changes.length} 项修改` : '无修改', changes.length ? 'ok' : '');
+}
+function delTicket(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!can('deleteOwn', t)) { toast(denyReason('deleteOwn', t), 'err'); return; }
+  modal('删除确认', `<div style="text-align:center;padding:6px 0">
+      <div style="font-size:38px">🗑️</div>
+      <p style="margin:10px 0 6px;font-size:15px;font-weight:600">确定删除任务 ${t.id}？</p>
+      <p class="muted" style="font-size:13px">「${esc(t.title)}」<br>删除后不可恢复，相关日程同步移除。</p></div>`,
+    `<button class="btn btn-g" onclick="closeModal()">取消</button>
+     <button class="btn btn-d" onclick="doDel('${id}')">确认删除</button>`);
+}
+function doDel(id) {
+  const i = TICKETS.findIndex(x => x.id === id);
+  const t = TICKETS[i];
+  TICKETS.splice(i, 1);
+  closeModal(); renderAll();
+  toast(`任务 ${id} 已删除`, 'ok');
+}
+
+/* ---------- 转派 + 邮件通知 ---------- */
+function openTransfer(id) {
+  const t = TICKETS.find(x => x.id === id);
+  const byOwner = can('transferOwn', t), byAssignee = can('transferAssigned', t);
+  if (!byOwner && !byAssignee) {
+    toast(byOwner === false && t.creator !== CURRENT ? denyReason('transferOwn', t) : denyReason('transferAssigned', t), 'err');
+    return;
+  }
+  const others = USERS.filter(u => u.id !== t.assignee);
+  const body = `
+    <div class="note">转派后任务将移交给新负责人，系统会<b>自动发送邮件通知</b>，并记录到任务操作记录中。</div>
+    <div class="fg"><label class="fl">当前负责人</label>
+      <div class="who" style="padding:7px 0"><div class="av" style="background:${U(t.assignee).color}">${U(t.assignee).name[0]}</div>
+      <span>${U(t.assignee).name} · ${U(t.assignee).dept} · ${U(t.assignee).email}</span></div></div>
+    <div class="fg"><label class="fl">转派给 *</label>
+      <select class="inp" id="tr-to" onchange="renderMail()">${others.map(u => `<option value="${u.id}">${u.name}（${u.dept} · ${u.email}）</option>`).join('')}</select></div>
+    <div class="row2">
+      <div class="fg"><label class="fl">期望完成时间</label><input type="date" class="inp" id="tr-due" value="${fmtD(t.dueAt)}" oninput="renderMail()"></div>
+      <div class="fg"><label class="fl">抄送</label><input class="inp" id="tr-cc" value="${U(t.creator).email}" oninput="renderMail()"></div>
+    </div>
+    <div class="fg"><label class="fl">转派说明</label><textarea class="inp" id="tr-note" oninput="renderMail()" placeholder="说明转派原因与注意事项">该任务需要你协助推进，请查收并尽快处理。</textarea></div>
+    <div class="sec-t">邮件预览</div><div class="mail-prev" id="mail-prev"></div>`;
+  modal('转派任务 · ' + t.id, body,
+    `<button class="btn btn-g" onclick="closeModal()">取消</button>
+     <button class="btn btn-p" onclick="doTransfer('${t.id}')">📧 转派并发送邮件</button>`);
+  window.__trTicket = t;
+  renderMail();
+}
+function renderMail() {
+  const t = window.__trTicket; if (!t) return;
+  const to = U($('#tr-to').value), cc = $('#tr-cc').value, note = $('#tr-note').value, due = $('#tr-due').value;
+  const subject = `【任务转派】${t.id} ${t.title}`;
+  const content = `你好，${to.name}：
+
+${U(CURRENT).name} 将任务转派给你，请及时处理。
+
+● 任务编号：${t.id}
+● 任务标题：${t.title}
+● 任务类型：${t.type}
+● 优先级：${PRIO[t.priority].name}
+● 当前状态：${STATUS[t.status].name}
+● 期望完成：${due}
+● 创建人：${U(t.creator).name}
+
+转派说明：
+${note || '（无）'}
+
+请及时登录任务系统处理：
+https://task.corp.com/task/${t.id}
+
+—— 任务管理系统 自动发送，请勿直接回复`;
+  $('#mail-prev').innerHTML = `<div class="mh"><b>收件人</b><span>${to.email}</span></div>
+    <div class="mh"><b>抄送</b><span>${esc(cc) || '—'}</span></div>
+    <div class="mh" style="border:none;padding-bottom:0;margin-bottom:4px"><b>主题</b><span>${esc(subject)}</span></div>
+    <div class="mb">${esc(content)}</div>`;
+  window.__mail = { to: to.email, cc, subject, content };
+}
+function doTransfer(id) {
+  const t = TICKETS.find(x => x.id === id);
+  const to = $('#tr-to').value, note = $('#tr-note').value.trim(), due = $('#tr-due').value;
+  const [y, m, d] = due.split('-').map(Number);
+  const old = U(t.assignee);
+  t.assignee = to;
+  t.dueAt = new Date(y, m - 1, d, t.dueAt.getHours(), t.dueAt.getMinutes());
+  t.updatedAt = new Date();
+  if (t.status === 'new') t.status = 'doing';
+  t.timeline.push({ time: new Date(), actor: CURRENT, action: '转派任务', note: `由 ${old.name} 转派给 ${U(to).name}。${note}`, to });
+  t.mails.push({ to: U(to).email, subject: window.__mail.subject, time: new Date() });
+  closeModal(); renderAll();
+  toast(`已转派给 ${U(to).name}`, 'ok');
+  setTimeout(() => toast(`📧 转派邮件已发送至 ${U(to).email}`, 'info'), 650);
+}
+
+/* ---------- 快速调整优先级 / 到期时间 ---------- */
+function quickPrio(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!can('prioOwn', t)) { toast(denyReason('prioOwn', t), 'err'); return; }
+  modal('调整优先级 · ' + t.id, `
+    <p class="muted" style="margin-bottom:14px">当前：<span class="tag ${PRIO[t.priority].cls}">${PRIO[t.priority].name}</span></p>
+    <div class="grid" style="grid-template-columns:repeat(2,1fr);gap:10px">
+      ${Object.keys(PRIO).map(k => `<button class="btn ${k === t.priority ? 'btn-p' : 'btn-g'}" style="justify-content:center;padding:12px" onclick="setPrio('${id}','${k}')">
+        <span class="tag ${PRIO[k].cls}">${PRIO[k].name}</span></button>`).join('')}
+    </div>`, `<button class="btn btn-g" onclick="closeModal()">取消</button>`);
+}
+function setPrio(id, k) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!can('prioOwn', t)) { toast(denyReason('prioOwn', t), 'err'); return closeModal(); }
+  const old = PRIO[t.priority].name; t.priority = k; t.updatedAt = new Date();
+  t.timeline.push({ time: new Date(), actor: CURRENT, action: '调整优先级', note: `${old} → ${PRIO[k].name}` });
+  closeModal(); renderAll(); toast(`优先级已调整为 ${PRIO[k].name}`, 'ok');
+}
+function quickDue(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!can('dueOwn', t)) { toast(denyReason('dueOwn', t), 'err'); return; }
+  modal('调整到期时间 · ' + t.id, `
+    <p class="muted" style="margin-bottom:14px">当前：${fmtDT(t.dueAt)}（${relDue(t.dueAt)}）</p>
+    <div class="fg"><label class="fl">新的到期时间</label>
+      <div style="display:flex;gap:9px"><input type="date" class="inp" id="qd-d" value="${fmtD(t.dueAt)}">
+      <input type="time" class="inp" id="qd-t" value="${fmtT(t.dueAt)}" style="width:130px"></div></div>
+    <div class="fg"><label class="fl">快捷设置</label><div style="display:flex;gap:7px;flex-wrap:wrap">
+      <button class="btn btn-g btn-sm" onclick="setDueOffset('${id}',0)">今天</button>
+      <button class="btn btn-g btn-sm" onclick="setDueOffset('${id}',1)">明天</button>
+      <button class="btn btn-g btn-sm" onclick="setDueOffset('${id}',3)">延后3天</button>
+      <button class="btn btn-g btn-sm" onclick="setDueOffset('${id}',7)">延后1周</button></div></div>`,
+    `<button class="btn btn-g" onclick="closeModal()">取消</button>
+     <button class="btn btn-p" onclick="setDue('${id}')">保存</button>`);
+}
+function setDueOffset(id, n) {
+  const t = TICKETS.find(x => x.id === id);
+  const d = addDays(TODAY, n);
+  applyDue(t, new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.dueAt.getHours(), t.dueAt.getMinutes()));
+}
+function setDue(id) {
+  const t = TICKETS.find(x => x.id === id);
+  const [y, m, d] = $('#qd-d').value.split('-').map(Number), [hh, mm] = $('#qd-t').value.split(':').map(Number);
+  applyDue(t, new Date(y, m - 1, d, hh, mm));
+}
+function applyDue(t, nd) {
+  if (!can('dueOwn', t)) { toast(denyReason('dueOwn', t), 'err'); return closeModal(); }
+  const old = fmtDT(t.dueAt); t.dueAt = nd; t.updatedAt = new Date();
+  t.timeline.push({ time: new Date(), actor: CURRENT, action: '调整到期时间', note: `${old} → ${fmtDT(nd)}` });
+  closeModal(); renderAll(); toast(`到期时间已改为 ${fmtDT(nd)}`, 'ok');
+}
+
+/* ---------- 详情抽屉 ---------- */
+function openDetail(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!visible(t)) { toast('无权查看该任务', 'err'); return; }
+  const ov = isOverdue(t);
+  const canUpdate = can('updateAssigned', t) || can('editOwn', t);
+  const body = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="tag ${PRIO[t.priority].cls}">${PRIO[t.priority].name}</span>
+      <span class="tag ${STATUS[t.status].cls}">${STATUS[t.status].name}</span>
+      <span class="pill">${t.type}</span>
+      ${ov ? '<span class="tag t-P0">⚠️ 已逾期</span>' : ''}
+    </div>
+    <h3 style="font-size:16px;line-height:1.5;margin-bottom:8px">${esc(t.title)}</h3>
+    <div class="mini" style="margin-bottom:16px">${t.id} · 来源 ${t.source} · 创建于 ${fmtDT(t.createdAt)}</div>
+    <div class="sec-t">基本信息</div>
+    <dl class="kv">
+      <dt>负责人</dt><dd><div class="who"><div class="av" style="background:${U(t.assignee).color}">${U(t.assignee).name[0]}</div>${U(t.assignee).name} · ${U(t.assignee).dept}</div></dd>
+      <dt>创建人</dt><dd><div class="who"><div class="av" style="background:${U(t.creator).color}">${U(t.creator).name[0]}</div>${U(t.creator).name} · ${U(t.creator).dept}</div></dd>
+      <dt>到期时间</dt><dd style="${ov ? 'color:var(--danger);font-weight:600' : ''}">${fmtDT(t.dueAt)}（${isDone(t) ? '已归档' : relDue(t.dueAt)}）</dd>
+      <dt>完成进度</dt><dd><div style="display:flex;align-items:center;gap:9px">
+        <div class="bar ${t.progress >= 100 ? 'done' : ov ? 'warn' : ''}" style="flex:1;max-width:220px"><i style="width:${t.progress}%"></i></div>
+        <b>${t.progress}%</b></div></dd>
+      <dt>最后更新</dt><dd>${fmtDT(t.updatedAt)}（${ago(t.updatedAt)}）</dd>
+    </dl>
+    <div class="sec-t">任务描述</div>
+    <p style="background:var(--gray-50);padding:12px;border-radius:10px;font-size:13px;line-height:1.8">${esc(t.desc) || '—'}</p>
+    <div class="sec-t">操作记录（${t.timeline.length} 条）</div>
+    <div class="tl2">${t.timeline.slice().reverse().map((l, i) => `
+      <div class="tl2-i ${i === 0 ? 'hi' : ''}">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <b>${l.action}</b>
+          <span class="mini">${U(l.actor).name}</span>
+          <span class="mt">${fmtDT(l.time)}</span>
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-top:3px">${esc(l.note)}</div>
+      </div>`).join('')}</div>
+    ${t.mails.length ? `<div class="sec-t">邮件通知记录（${t.mails.length}）</div>
+      <div style="font-size:12.5px">${t.mails.map(m => `<div style="padding:8px 11px;background:var(--cyan-l);border-radius:9px;margin-bottom:7px">
+        ✉️ <b>${m.to}</b> · ${fmtDT(m.time)}<div class="mini">${esc(m.subject)}</div></div>`).join('')}</div>` : ''}
+    <div class="sec-t">进度更新</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="range" class="inp" id="d-prog" min="0" max="100" step="5" value="${t.progress}" ${canUpdate ? '' : 'disabled'} style="padding:0;border:none;flex:1" oninput="document.getElementById('d-pgv').textContent=this.value">
+      <b id="d-pgv">${t.progress}</b><span>%</span>
+      <button class="btn btn-s btn-sm" onclick="saveProgress('${t.id}')" ${canUpdate ? '' : 'disabled title="仅负责人或创建人可更新"'}>保存进度</button>
+    </div>
+    ${!canUpdate ? '<div class="mini" style="margin-top:8px">🔒 当前身份不可更新该任务进度</div>' : ''}`;
+  $('#drawer-root').innerHTML = `<div class="mask" onclick="if(event.target===this)closeDrawer()" style="background:rgba(15,23,42,.35)"></div>
+    <div class="drawer">
+      <div class="d-h"><h3 style="font-size:15px">任务详情</h3>
+        <button class="x" style="margin-left:auto;width:28px;height:28px;border-radius:8px;color:var(--gray-400);font-size:18px" onclick="closeDrawer()">×</button></div>
+      <div class="d-b">${body}</div>
+      <div class="d-f">
+        <button class="btn btn-g" onclick="closeDrawer()">关闭</button>
+        <button class="btn btn-g" onclick="openTransfer('${t.id}')" ${(can('transferOwn', t) || can('transferAssigned', t)) ? '' : 'disabled'}>转派</button>
+        <button class="btn btn-p" onclick="openEdit('${t.id}')" ${can('editOwn', t) ? '' : 'disabled'}>编辑任务</button>
+      </div></div>`;
+}
+function closeDrawer() { $('#drawer-root').innerHTML = ''; }
+function saveProgress(id) {
+  const t = TICKETS.find(x => x.id === id);
+  if (!(can('updateAssigned', t) || can('editOwn', t))) { toast('无权更新该任务进度', 'err'); return; }
+  const v = +$('#d-prog').value;
+  const old = t.progress; t.progress = v; t.updatedAt = new Date();
+  if (v >= 100 && !isDone(t)) t.status = 'wait';
+  if (v > 0 && v < 100 && t.status === 'new') t.status = 'doing';
+  t.timeline.push({ time: new Date(), actor: CURRENT, action: '更新进度', note: `进度 ${old}% → ${v}%${v >= 100 ? '，已提交确认' : ''}` });
+  closeDrawer(); renderAll(); openDetail(id);
+  toast(`进度已更新为 ${v}%`, 'ok');
+}
+
+/* ---------- 导出 ---------- */
+function exportCSV() {
+  if (!PERM[myRole()].exportData) { toast('当前角色无导出权限', 'err'); return; }
+  const rows = [['编号', '标题', '类型', '优先级', '状态', '进度', '创建人', '负责人', '创建时间', '到期时间']]
+    .concat(filtered().map(t => [t.id, t.title, t.type, PRIO[t.priority].name, STATUS[t.status].name, t.progress + '%', U(t.creator).name, U(t.assignee).name, fmtDT(t.createdAt), fmtDT(t.dueAt)]));
+  const csv = '\ufeff' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `任务列表_${fmtD(TODAY)}.csv`;
+  a.click();
+  toast(`已导出 ${rows.length - 1} 条任务`, 'ok');
+}
+
+/* ---------- 全局渲染 ---------- */
+const TITLES_MAP = { overview: ['总览统计', '历史 / 月度 / 周度 / 自定义数据看板'], tickets: ['任务列表', '创建 / 编辑 / 删除 / 转派 / 优先级 / 到期时间'], calendar: ['日程', '按任务到期日排布的日历视图'], permission: ['权限管理', '角色 · 权限矩阵 · 用户'] };
+function renderAll() {
+  const u = me(), r = ROLES[u.role];
+  $('#me-av').textContent = u.name[0]; $('#me-av').style.background = u.color;
+  $('#me-name').textContent = u.name; $('#me-role').textContent = `${r.name} · ${u.dept}`;
+  $('#role-hint').innerHTML = r.key === 'admin' ? '✅ 全部模块可操作' : r.key === 'taskAdmin' ? '📋 可查看全部 · 管理自己创建的任务' : '👀 仅可跟进指派给自己的任务';
+  renderOverview(); renderTickets(); renderCalendar(); renderPermission();
+  const gate = (el, ok, tip) => { const b = $(el); b.disabled = !ok; b.title = ok ? '' : tip; };
+  gate('#btn-new-ticket', can('create'), ROLES[myRole()].name + ' 无「创建任务」权限');
+  gate('#btn-export', PERM[myRole()].exportData, ROLES[myRole()].name + ' 无「导出数据」权限');
+  $('#today-pill').textContent = `📆 今天 ${fmtD(TODAY)} 周${['日', '一', '二', '三', '四', '五', '六'][TODAY.getDay()]}`;
+}
+function switchView(v) {
+  $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
+  $('#page-title').textContent = TITLES_MAP[v][0];
+  $('#page-sub').textContent = TITLES_MAP[v][1];
+  if (v === 'calendar') renderCalendar();
+  window.scrollTo({ top: 0 });
+}
+
+/* ---------- 初始化 ---------- */
+function init() {
+  $('#role-select').innerHTML = USERS.map(u => `<option value="${u.id}">${u.name} · ${ROLES[u.role].name}</option>`).join('');
+  $('#role-select').value = CURRENT;
+  $('#role-select').onchange = e => loginAs(e.target.value);
+  $('#f-status').innerHTML += Object.keys(STATUS).map(k => `<option value="${k}">${STATUS[k].name}</option>`).join('');
+  $('#f-prio').innerHTML += Object.keys(PRIO).map(k => `<option value="${k}">${PRIO[k].name}</option>`).join('');
+  $('#f-type').innerHTML += TYPES.map(x => `<option>${x}</option>`).join('');
+  $('#f-assignee').innerHTML += USERS.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+
+  $$('.nav-item').forEach(b => b.onclick = () => switchView(b.dataset.view));
+  $$('#range-tabs button').forEach(b => b.onclick = () => {
+    $$('#range-tabs button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); RANGE = b.dataset.range;
+    $('#custom-range').style.display = RANGE === 'custom' ? 'flex' : 'none';
+    if (RANGE === 'custom' && !$('#ds').value) { $('#ds').value = CUSTOM.s; $('#de').value = CUSTOM.e; }
+    renderOverview();
+  });
+  $('#btn-apply-range').onclick = () => {
+    if (!$('#ds').value || !$('#de').value) return toast('请选择起止日期', 'err');
+    if ($('#ds').value > $('#de').value) return toast('开始日期不能晚于结束日期', 'err');
+    CUSTOM = { s: $('#ds').value, e: $('#de').value }; renderOverview(); toast('统计区间已更新', 'ok');
+  };
+  ['kw', 'status', 'prio', 'type', 'assignee', 'scope'].forEach(k => {
+    const el = $('#f-' + k); if (!el) return;
+    el.oninput = el.onchange = () => { FILTER[k] = el.value; PAGE = 1; renderTickets(); };
+  });
+  $('#btn-reset').onclick = () => {
+    Object.keys(FILTER).forEach(k => FILTER[k] = k === 'scope' ? 'all' : '');
+    ['kw', 'status', 'prio', 'type', 'assignee', 'scope'].forEach(k => { const e = $('#f-' + k); if (e) e.value = FILTER[k]; });
+    PAGE = 1; renderTickets();
+  };
+  $('#btn-new-ticket').onclick = openNew;
+  $('#btn-export').onclick = exportCSV;
+  $('#cal-prev').onclick = () => { CAL_CUR = new Date(CAL_CUR.getFullYear(), CAL_CUR.getMonth() - 1, 1); renderCalendar(); };
+  $('#cal-next').onclick = () => { CAL_CUR = new Date(CAL_CUR.getFullYear(), CAL_CUR.getMonth() + 1, 1); renderCalendar(); };
+  $('#cal-today').onclick = () => { CAL_CUR = startOfMonth(TODAY); CAL_SEL = new Date(TODAY); renderCalendar(); };
+  $('#cal-only-mine').onchange = renderCalendar;
+  $('#btn-reset-perm').onclick = () => {
+    if (!PERM[myRole()].setPerm) return toast('无权限配置权限矩阵', 'err');
+    PERM = JSON.parse(JSON.stringify(DEFAULT_PERM)); renderAll(); toast('权限矩阵已恢复默认', 'ok');
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeDrawer(); } });
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
