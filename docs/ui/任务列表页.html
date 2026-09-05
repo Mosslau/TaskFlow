@@ -327,17 +327,6 @@
 
   .due { font-size: 13px; color: #5E6D82; }
   .due.overdue { color: #C8493F; font-weight: 500; }
-  .due .overdue-tag {
-    display: inline-block;
-    margin-left: 6px;
-    height: 18px; line-height: 16px;
-    padding: 0 5px;
-    border: 1px solid #C8493F;
-    border-radius: 3px;
-    font-size: 11px;
-    color: #C8493F;
-    font-weight: 400;
-  }
 
   .progress-cell { display: flex; align-items: center; gap: 8px; }
   .progress-bar {
@@ -353,7 +342,7 @@
 
   .upd-time { font-size: 13px; color: #8A97A8; }
 
-  .ops { display: flex; gap: 12px; }
+  .ops { display: flex; gap: 10px; }
   .op-btn {
     font-size: 13px;
     color: #0E7C86;
@@ -369,7 +358,8 @@
   }
   /* 默认行：操作列半透明（示意悬停才完全显现）；悬停行完全不透明 */
   .task-table tbody tr:not(.row-hover) .ops { opacity: 0.35; }
-  .task-table tbody tr.row-hover .ops { opacity: 1; }
+  .task-table tbody tr.row-hover .ops,
+  .task-table tbody tr:hover .ops { opacity: 1; }
 
   /* 分页 */
   .table-footer {
@@ -433,7 +423,13 @@
       <div class="breadcrumb">任务管理<span class="sep">/</span><span class="current">任务列表</span></div>
       <div class="topbar-right">
         <input class="global-search" type="text" placeholder="全局搜索任务、成员…">
-        <div class="bell">🔔<span class="dot-badge">5</span></div>
+        <div class="bell">
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6v3l-1.2 2.4c-.15.3.1.6.45.6h10.5c.35 0 .6-.3.45-.6L12.5 9V6c0-2.5-2-4.5-4.5-4.5Z" stroke="#5E6D82" stroke-width="1.3" stroke-linejoin="round"/>
+            <path d="M6.4 13.5a1.7 1.7 0 0 0 3.2 0" stroke="#5E6D82" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span class="dot-badge">5</span>
+        </div>
         <div class="topbar-avatar">张伟</div>
       </div>
     </header>
@@ -498,7 +494,7 @@
               <td><span class="status st-doing"><span class="dot"></span>进行中</span></td>
               <td>李娜</td>
               <td>王强</td>
-              <td><span class="due overdue num">2025-01-08<span class="overdue-tag">逾期</span></span></td>
+              <td><span class="due overdue num">2025-01-08</span></td>
               <td>
                 <div class="progress-cell">
                   <div class="progress-bar"><div class="fill" style="width:65%"></div></div>
@@ -573,7 +569,7 @@
               <td><span class="status st-doing"><span class="dot"></span>进行中</span></td>
               <td>赵磊</td>
               <td>陈静</td>
-              <td><span class="due overdue num">2025-01-10<span class="overdue-tag">逾期</span></span></td>
+              <td><span class="due overdue num">2025-01-10</span></td>
               <td>
                 <div class="progress-cell">
                   <div class="progress-bar"><div class="fill" style="width:40%"></div></div>
