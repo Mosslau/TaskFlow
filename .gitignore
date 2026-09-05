@@ -46,3 +46,5 @@ target/
 
 # pnpm 存储缓存
 .pnpm-store/
+# IDE 配置（IntelliJ）
+.idea/
