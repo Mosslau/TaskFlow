@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · TaskFlow 企业任务管理系统</title>
+<style>
+  /* ============ 设计令牌 ============
+     品牌主色  #0E7C86 / hover #0A5F67 / 浅底 #E3F2F3
+     墨青      #12242E / 纸灰 #F6F7F9
+     主文案 #1F2D3D  次要 #5E6D82  辅助 #8A97A8
+     边框 #D8DEE6  浅底 #E8ECF1  危险 #C8493F
+     间距 4px 基网；圆角：容器 8px、输入框与按钮 6px
+  ==================================== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: #1F2D3D;
+    background: #F6F7F9;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============ 全屏左右分栏 ============ */
+  .page {
+    display: flex;
+    min-width: 1280px;
+    min-height: 100vh;
+  }
+
+  /* ============ 左侧品牌区 ============ */
+  .brand {
+    width: 55%;
+    background: #12242E;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 64px 72px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* 背景装饰：大号任务流折线，极低透明度，呼应主题不喧宾夺主 */
+  .brand-deco {
+    position: absolute;
+    right: -120px;
+    bottom: -80px;
+    opacity: .06;
+    pointer-events: none;
+  }
+  .brand-inner { position: relative; max-width: 440px; }
+
+  .brand-mark { display: flex; align-items: center; gap: 16px; }
+  .brand-name {
+    font-size: 28px;
+    font-weight: 600;
+    color: #FFFFFF;
+    letter-spacing: .5px;
+    line-height: 1.2;
+  }
+  .brand-sub {
+    margin-top: 4px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, .6);
+  }
+
+  .brand-slogan {
+    margin-top: 48px;
+    font-size: 16px;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, .6);
+  }
+
+  .brand-features {
+    margin-top: 96px;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .brand-features li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, .6);
+  }
+  .brand-features .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #0E7C86;
+    flex: none;
+  }
+
+  /* ============ 右侧登录区 ============ */
+  .login {
+    width: 45%;
+    background: #F6F7F9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 48px;
+  }
+
+  .card {
+    width: 400px;
+    background: #FFFFFF;
+    border: 1px solid #D8DEE6;
+    border-radius: 8px;
+    padding: 32px;
+  }
+
+  .card-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #12242E;
+    line-height: 1.4;
+  }
+  .card-sub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #8A97A8;
+  }
+
+  .field { margin-top: 24px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: #5E6D82;
+    margin-bottom: 8px;
+  }
+  .field .input {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #D8DEE6;
+    border-radius: 6px;
+    padding: 0 12px;
+    font-size: 14px;
+    color: #1F2D3D;
+    font-family: inherit;
+    outline: none;
+    background: #FFFFFF;
+  }
+  .field .input::placeholder { color: #8A97A8; }
+  /* 账号框：聚焦态演示（青碧 1.5px 描边 + 浅青碧光晕） */
+  .field .input.is-focus {
+    border: 1.5px solid #0E7C86;
+    padding: 0 11.5px; /* 补偿加粗的 0.5px 描边，保持内容对齐 */
+    box-shadow: 0 0 0 3px #E3F2F3;
+  }
+
+  /* 错误提示示例条 */
+  .alert {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(200, 73, 63, .08);
+    border-radius: 6px;
+    font-size: 12px;
+    color: #C8493F;
+    line-height: 1.5;
+  }
+  .alert svg { flex: none; }
+
+  .btn-login {
+    margin-top: 24px;
+    width: 100%;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    background: #0E7C86;
+    color: #FFFFFF;
+    font-size: 15px;
+    font-family: inherit;
+    letter-spacing: 4px;
+    text-indent: 4px; /* 字间距补偿，使视觉居中 */
+    cursor: pointer;
+  }
+  .btn-login:hover { background: #0A5F67; }
+
+  .card-note {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #8A97A8;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .footer {
+    margin-top: 32px;
+    font-size: 12px;
+    color: #8A97A8;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- 左侧品牌区 -->
+  <section class="brand">
+    <!-- 背景装饰图形（内联 SVG，任务流折线放大版） -->
+    <svg class="brand-deco" width="480" height="320" viewBox="0 0 480 320" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polyline points="40,240 200,120 340,180 460,60" stroke="#FFFFFF" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="40" cy="240" r="22" fill="#FFFFFF"/>
+      <circle cx="200" cy="120" r="22" fill="#FFFFFF"/>
+      <circle cx="340" cy="180" r="22" fill="#FFFFFF"/>
+      <circle cx="460" cy="60" r="22" fill="#FFFFFF"/>
+    </svg>
+
+    <div class="brand-inner">
+      <!-- 品牌标识：任务流图形 + 名称 -->
+      <div class="brand-mark">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TaskFlow 任务流标识">
+          <!-- 底板 -->
+          <rect width="56" height="56" rx="12" fill="#0E7C86"/>
+          <!-- 折线：三段串联，象征任务流转 -->
+          <polyline points="14,38 28,20 42,30" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- 三个任务节点：起点实心白、中点描边白、终点实心白带青碧芯（完成态） -->
+          <circle cx="14" cy="38" r="4.5" fill="#FFFFFF"/>
+          <circle cx="28" cy="20" r="4.5" fill="#0E7C86" stroke="#FFFFFF" stroke-width="2.5"/>
+          <circle cx="42" cy="30" r="5.5" fill="#FFFFFF"/>
+          <circle cx="42" cy="30" r="2" fill="#0E7C86"/>
+        </svg>
+        <div>
+          <div class="brand-name">TaskFlow</div>
+          <div class="brand-sub">企业任务管理系统</div>
+        </div>
+      </div>
+
+      <!-- 价值文案 -->
+      <p class="brand-slogan">任务分派、进度跟踪、逾期提醒，一处搞定</p>
+
+      <!-- 特性条目 -->
+      <ul class="brand-features">
+        <li><span class="dot"></span>任务全生命周期在线化</li>
+        <li><span class="dot"></span>逾期自动提醒</li>
+        <li><span class="dot"></span>权限按角色可控</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 右侧登录区 -->
+  <main class="login">
+    <div class="card">
+      <h1 class="card-title">登录</h1>
+      <p class="card-sub">使用企业账号登录系统</p>
+
+      <form action="#" method="post">
+        <!-- 账号（展示聚焦态） -->
+        <div class="field">
+          <label for="account">账号</label>
+          <input class="input is-focus" id="account" name="account" type="text" placeholder="字母 / 数字 / 下划线" autocomplete="username">
+        </div>
+
+        <!-- 密码 -->
+        <div class="field">
+          <label for="password">密码</label>
+          <input class="input" id="password" name="password" type="password" placeholder="请输入密码" autocomplete="current-password">
+        </div>
+
+        <!-- 错误提示示例条（状态演示，常驻显示） -->
+        <div class="alert" role="alert">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="7" cy="7" r="6" stroke="#C8493F" stroke-width="1.5"/>
+            <line x1="7" y1="4" x2="7" y2="7.5" stroke="#C8493F" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="7" cy="9.8" r="0.9" fill="#C8493F"/>
+          </svg>
+          账号或密码错误，还可尝试 3 次
+        </div>
+
+        <!-- 登录按钮 -->
+        <button class="btn-login" type="submit">登 录</button>
+
+        <!-- 辅助说明 -->
+        <p class="card-note">首次登录将要求修改初始密码 · 连续失败 5 次锁定 15 分钟</p>
+      </form>
+    </div>
+
+    <!-- 页脚 -->
+    <p class="footer">TaskFlow v1.0 · 仅限企业内部使用</p>
+  </main>
+
+</div>
+</body>
+</html>

@@ -11,6 +11,6 @@ TaskFlow（任务管理系统）：企业内部任务分派、跟踪、统计与
 | [docs/库表设计文档-v1.0.md](docs/库表设计文档-v1.0.md) | PostgreSQL 库表设计（四库 DDL、索引、种子数据，已终审通过） |
 | [docs/接口设计文档-v1.0.md](docs/接口设计文档-v1.0.md) | 前后端 API 契约（47 个接口 schema、错误码、OpenAPI 接入，已终审通过） |
 | [docs/UI设计规范-v1.0.md](docs/UI设计规范-v1.0.md) | UI 设计规范（设计令牌、组件与页面规范、Element Plus 主题落地） |
-| [docs/ui/](docs/ui/) | 关键页高保真原型（任务列表 / 详情抽屉 / 统计总览，浏览器直接打开） |
+| [docs/ui/](docs/ui/) | 关键页高保真原型（登录 / 任务列表 / 详情抽屉 / 统计总览 / 日程视图，浏览器直接打开） |
 | [docs/任务管理系统原型.html](docs/任务管理系统原型.html) | 可交互高保真原型（浏览器直接打开） |
 | [docs/项目skills选型.md](docs/项目skills选型.md) | 项目级开发技能选型与维护约定 |

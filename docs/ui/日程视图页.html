@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日程视图 · TaskFlow 任务管理</title>
+<style>
+  /* ========== 基础 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: #1F2D3D;
+    background: #F6F7F9;
+    min-width: 1280px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  a { text-decoration: none; color: inherit; }
+
+  /* ========== 侧边栏 ========== */
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 232px;
+    background: #12242E;
+    display: flex; flex-direction: column;
+    z-index: 10;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: #0E7C86; color: #FFFFFF;
+    font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .brand-name { color: #FFFFFF; font-size: 15px; font-weight: 600; letter-spacing: .5px; }
+  .brand-sub { color: #8A97A8; font-size: 11px; margin-top: 2px; }
+
+  .nav { flex: 1; padding: 12px 0; }
+  .nav-item {
+    position: relative;
+    display: flex; align-items: center; gap: 10px;
+    height: 40px; padding: 0 20px;
+    color: #8A97A8; font-size: 14px;
+    cursor: pointer;
+  }
+  .nav-item:hover { color: #C3CBD4; }
+  .nav-item svg { flex: none; }
+  .nav-item.active {
+    color: #FFFFFF;
+    background: rgba(14,124,134,.15);
+  }
+  .nav-item.active::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: #0E7C86;
+  }
+  .nav-badge {
+    margin-left: auto;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 9px;
+    background: #C8493F; color: #FFFFFF;
+    font-size: 11px; line-height: 18px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .user-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #0E7C86; color: #FFFFFF;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .user-name { color: #FFFFFF; font-size: 13px; }
+  .user-role { color: #8A97A8; font-size: 11px; margin-top: 2px; }
+
+  /* ========== 顶栏 ========== */
+  .topbar {
+    margin-left: 232px;
+    height: 56px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #D8DEE6;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    position: sticky; top: 0; z-index: 5;
+  }
+  .crumb { font-size: 14px; color: #8A97A8; }
+  .crumb .sep { margin: 0 8px; color: #C3CBD4; }
+  .crumb .cur { color: #1F2D3D; font-weight: 500; }
+
+  .top-right { display: flex; align-items: center; gap: 16px; }
+  .search {
+    display: flex; align-items: center; gap: 6px;
+    width: 224px; height: 32px;
+    border: 1px solid #D8DEE6; border-radius: 6px;
+    background: #FFFFFF; padding: 0 10px;
+  }
+  .search input {
+    border: none; outline: none; flex: 1;
+    font-size: 13px; color: #1F2D3D;
+    font-family: inherit; background: transparent;
+  }
+  .search input::placeholder { color: #8A97A8; }
+  .bell {
+    position: relative; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; cursor: pointer;
+  }
+  .bell:hover { background: #F6F7F9; }
+  .bell-badge {
+    position: absolute; top: 2px; right: 0;
+    min-width: 15px; height: 15px; padding: 0 4px;
+    border-radius: 8px;
+    background: #C8493F; color: #FFFFFF;
+    font-size: 10px; line-height: 15px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .top-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #0E7C86; color: #FFFFFF; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+
+  /* ========== 内容区 ========== */
+  .content {
+    margin-left: 232px;
+    padding: 24px;
+    display: flex; gap: 24px;
+    align-items: flex-start;
+  }
+
+  .panel {
+    background: #FFFFFF;
+    border: 1px solid #D8DEE6;
+    border-radius: 8px;
+  }
+  .calendar-panel { flex: 1 1 0; min-width: 0; }
+  .day-panel { width: 328px; flex: none; }
+
+  /* ---- 月历页头 ---- */
+  .cal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px;
+  }
+  .cal-head .side { width: 200px; display: flex; align-items: center; gap: 12px; }
+  .cal-head .side.right { justify-content: flex-end; }
+  .btn-text {
+    border: none; background: none; cursor: pointer;
+    font-size: 14px; color: #0E7C86; font-family: inherit;
+    padding: 4px 0;
+  }
+  .btn-text:hover { text-decoration: underline; }
+  .btn-secondary {
+    height: 32px; padding: 0 12px;
+    border: 1px solid #D8DEE6; border-radius: 6px;
+    background: #FFFFFF; color: #1F2D3D;
+    font-size: 13px; font-family: inherit; cursor: pointer;
+  }
+  .btn-secondary:hover { border-color: #0E7C86; color: #0E7C86; }
+  .cal-title { text-align: center; }
+  .cal-title h1 { font-size: 20px; font-weight: 600; color: #12242E; }
+  .cal-title p { font-size: 12px; color: #8A97A8; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  /* ---- 星期表头 ---- */
+  .week-row {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    background: #E8ECF1;
+    border-top: 1px solid #E8ECF1;
+  }
+  .week-row span {
+    font-size: 12px; color: #5E6D82;
+    padding: 8px 12px;
+  }
+
+  /* ---- 日期网格 ---- */
+  .grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #E8ECF1;
+    border-top: 1px solid #E8ECF1;
+  }
+  .cell {
+    background: #FFFFFF;
+    min-height: 100px;
+    padding: 6px 8px 4px;
+    overflow: hidden;
+  }
+  .dnum {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 13px; color: #1F2D3D;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 4px; height: 18px;
+  }
+  .cell.dim .dnum { color: #C3CBD4; }
+  .late-dot { width: 6px; height: 6px; border-radius: 50%; background: #C8493F; flex: none; }
+  .cell.today { box-shadow: inset 0 0 0 1.5px #0E7C86; }
+  .cell.today .dnum { color: #0E7C86; font-weight: 700; }
+  .cell.sel { background: #E3F2F3; }
+
+  .evt {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #1F2D3D; line-height: 20px;
+    white-space: nowrap;
+  }
+  .evt .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .s-todo     { background: #8A97A8; }
+  .s-doing    { background: #0E7C86; }
+  .s-review   { background: #D9822B; }
+  .s-done     { background: #2F9E6E; }
+  .s-archived { background: #C3CBD4; }
+  .more { font-size: 12px; color: #0E7C86; line-height: 20px; padding-left: 14px; font-variant-numeric: tabular-nums; }
+
+  /* ---- 月历底部图例 ---- */
+  .legend {
+    display: flex; align-items: center; gap: 20px;
+    padding: 12px 24px;
+    border-top: 1px solid #E8ECF1;
+    font-size: 12px; color: #5E6D82;
+  }
+  .legend .lg { display: flex; align-items: center; gap: 6px; }
+
+  /* ---- 当日任务清单 ---- */
+  .day-head {
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid #E8ECF1;
+  }
+  .day-head h2 { font-size: 16px; font-weight: 600; color: #12242E; }
+  .day-body { padding: 16px 20px 20px; }
+
+  .task-card {
+    border: 1px solid #D8DEE6; border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: #FFFFFF;
+  }
+  .task-card.hover { background: #F6F7F9; }
+  .task-card .r1 {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .code { font-size: 12px; color: #5E6D82; font-variant-numeric: tabular-nums; }
+  .tag {
+    font-size: 12px; line-height: 18px;
+    padding: 0 6px; border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tag.p0 { color: #C8493F; background: rgba(200,73,63,.1); }
+  .tag.p1 { color: #D9822B; background: rgba(217,130,43,.1); }
+  .tag.p2 { color: #1F2D3D; background: #E8ECF1; }
+  .tag.p3 { color: #8A97A8; background: #F6F7F9; }
+  .task-title { font-size: 14px; color: #1F2D3D; margin-bottom: 8px; line-height: 20px; }
+  .task-meta {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #5E6D82;
+  }
+  .task-meta .sep { color: #C3CBD4; }
+  .task-meta .time { font-variant-numeric: tabular-nums; }
+  .task-meta .overdue { color: #C8493F; font-variant-numeric: tabular-nums; }
+
+  .day-tip {
+    text-align: center;
+    font-size: 12px; color: #8A97A8;
+    padding-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ========== 侧边栏 ========== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">T</div>
+      <div>
+        <div class="brand-name">TaskFlow</div>
+        <div class="brand-sub">任务管理</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="3" rx="1" stroke="currentColor"/><rect x="2" y="7" width="12" height="3" rx="1" stroke="currentColor"/><rect x="2" y="12" width="12" height="2.5" rx="1" stroke="currentColor"/></svg>
+        任务列表
+        <span class="nav-badge">12</span>
+      </div>
+      <div class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14V9M6 14V5M10 14V8M14 14V3" stroke="currentColor" stroke-linecap="round"/></svg>
+        统计总览
+      </div>
+      <div class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" stroke="currentColor" stroke-linecap="round"/></svg>
+        日程
+      </div>
+      <div class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 0 0-4 4v3l-1.2 2.4a.5.5 0 0 0 .45.6h9.5a.5.5 0 0 0 .45-.6L12 9V6a4 4 0 0 0-4-4Z" stroke="currentColor"/><path d="M6.5 13.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-linecap="round"/></svg>
+        通知中心
+      </div>
+      <div class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.8 3 3.6v3.9c0 3.1 2.1 5.2 5 6.7 2.9-1.5 5-3.6 5-6.7V3.6L8 1.8Z" stroke="currentColor" stroke-linejoin="round"/><path d="M5.8 7.8 7.4 9.4l2.8-3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        权限管理
+      </div>
+    </nav>
+
+    <div class="user-card">
+      <div class="avatar">张</div>
+      <div>
+        <div class="user-name">张伟</div>
+        <div class="user-role">任务管理员</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========== 顶栏 ========== -->
+  <header class="topbar">
+    <div class="crumb">任务管理<span class="sep">/</span><span class="cur">日程</span></div>
+    <div class="top-right">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6.2" cy="6.2" r="4.2" stroke="#8A97A8"/><path d="M9.5 9.5 12.5 12.5" stroke="#8A97A8" stroke-linecap="round"/></svg>
+        <input type="text" placeholder="搜索任务 / 编号">
+      </div>
+      <div class="bell">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 2a4 4 0 0 0-4 4v3l-1.2 2.4a.5.5 0 0 0 .45.6h9.5a.5.5 0 0 0 .45-.6L12 9V6a4 4 0 0 0-4-4Z" stroke="#5E6D82"/><path d="M6.5 13.5a1.5 1.5 0 0 0 3 0" stroke="#5E6D82" stroke-linecap="round"/></svg>
+        <span class="bell-badge">5</span>
+      </div>
+      <div class="top-avatar">张</div>
+    </div>
+  </header>
+
+  <!-- ========== 内容区 ========== -->
+  <main class="content">
+
+    <!-- 左栏：月历 -->
+    <section class="panel calendar-panel">
+      <div class="cal-head">
+        <div class="side">
+          <button class="btn-text">‹ 上一月</button>
+        </div>
+        <div class="cal-title">
+          <h1>2026 年 9 月</h1>
+          <p>本月 23 个任务到期</p>
+        </div>
+        <div class="side right">
+          <button class="btn-text">下一月 ›</button>
+          <button class="btn-secondary">回到今天</button>
+        </div>
+      </div>
+
+      <div class="week-row">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+      </div>
+
+      <div class="grid">
+        <!-- 第 1 行 -->
+        <div class="cell dim"><div class="dnum">8/31</div></div>
+        <div class="cell"><div class="dnum">1</div></div>
+        <div class="cell">
+          <div class="dnum">2<span class="late-dot" title="有逾期未完成任务"></span></div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">数据看板接口性能优化</span></div>
+          <div class="evt"><i class="dot s-review"></i><span class="t">登录页验证码升级</span></div>
+        </div>
+        <div class="cell"><div class="dnum">3</div></div>
+        <div class="cell">
+          <div class="dnum">4</div>
+          <div class="evt"><i class="dot s-done"></i><span class="t">组织架构同步脚本上线</span></div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">消息中心红点逻辑修复</span></div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">报表导出灰度方案评审</span></div>
+        </div>
+        <div class="cell today">
+          <div class="dnum">5</div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">P0 · 线上订单重复提交修复</span></div>
+          <div class="evt"><i class="dot s-review"></i><span class="t">员工档案批量导入</span></div>
+        </div>
+        <div class="cell"><div class="dnum">6</div></div>
+
+        <!-- 第 2 行 -->
+        <div class="cell"><div class="dnum">7</div></div>
+        <div class="cell sel">
+          <div class="dnum">8</div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">移动端审批流联调</span></div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">支付网关超时告警排查</span></div>
+          <div class="evt"><i class="dot s-done"></i><span class="t">↳ 权限矩阵文案校对</span></div>
+          <div class="more">+1</div>
+        </div>
+        <div class="cell"><div class="dnum">9</div></div>
+        <div class="cell">
+          <div class="dnum">10</div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">供应商对账流程梳理</span></div>
+        </div>
+        <div class="cell"><div class="dnum">11</div></div>
+        <div class="cell">
+          <div class="dnum">12</div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">客服工单自动分配</span></div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">周年庆活动页搭建</span></div>
+        </div>
+        <div class="cell"><div class="dnum">13</div></div>
+
+        <!-- 第 3 行 -->
+        <div class="cell"><div class="dnum">14</div></div>
+        <div class="cell">
+          <div class="dnum">15</div>
+          <div class="evt"><i class="dot s-review"></i><span class="t">发票抬头校验规则</span></div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">库存预警阈值配置</span></div>
+          <div class="evt"><i class="dot s-done"></i><span class="t">↳ 灰度发布回滚演练</span></div>
+        </div>
+        <div class="cell"><div class="dnum">16</div></div>
+        <div class="cell"><div class="dnum">17</div></div>
+        <div class="cell">
+          <div class="dnum">18</div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">数据备份策略评审</span></div>
+        </div>
+        <div class="cell"><div class="dnum">19</div></div>
+        <div class="cell"><div class="dnum">20</div></div>
+
+        <!-- 第 4 行 -->
+        <div class="cell"><div class="dnum">21</div></div>
+        <div class="cell">
+          <div class="dnum">22</div>
+          <div class="evt"><i class="dot s-doing"></i><span class="t">会员等级权益改版</span></div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">新人入职引导优化</span></div>
+        </div>
+        <div class="cell"><div class="dnum">23</div></div>
+        <div class="cell"><div class="dnum">24</div></div>
+        <div class="cell">
+          <div class="dnum">25</div>
+          <div class="evt"><i class="dot s-review"></i><span class="t">合同电子签接入</span></div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">多语言文案翻译</span></div>
+          <div class="evt"><i class="dot s-archived"></i><span class="t">旧版报表下线归档</span></div>
+        </div>
+        <div class="cell"><div class="dnum">26</div></div>
+        <div class="cell"><div class="dnum">27</div></div>
+
+        <!-- 第 5 行 -->
+        <div class="cell"><div class="dnum">28</div></div>
+        <div class="cell">
+          <div class="dnum">29</div>
+          <div class="evt"><i class="dot s-todo"></i><span class="t">国庆假期值班排期</span></div>
+        </div>
+        <div class="cell">
+          <div class="dnum">30</div>
+          <div class="evt"><i class="dot s-review"></i><span class="t">三季度 OKR 复盘汇总</span></div>
+        </div>
+        <div class="cell dim"><div class="dnum">10/1</div></div>
+        <div class="cell dim"><div class="dnum">10/2</div></div>
+        <div class="cell dim"><div class="dnum">10/3</div></div>
+        <div class="cell dim"><div class="dnum">10/4</div></div>
+
+        <!-- 第 6 行 -->
+        <div class="cell dim"><div class="dnum">10/5</div></div>
+        <div class="cell dim"><div class="dnum">10/6</div></div>
+        <div class="cell dim"><div class="dnum">10/7</div></div>
+        <div class="cell dim"><div class="dnum">10/8</div></div>
+        <div class="cell dim"><div class="dnum">10/9</div></div>
+        <div class="cell dim"><div class="dnum">10/10</div></div>
+        <div class="cell dim"><div class="dnum">10/11</div></div>
+      </div>
+
+      <div class="legend">
+        <span class="lg"><i class="dot s-todo"></i>待办</span>
+        <span class="lg"><i class="dot s-doing"></i>进行中</span>
+        <span class="lg"><i class="dot s-review"></i>待验收</span>
+        <span class="lg"><i class="dot s-done"></i>已完成</span>
+        <span class="lg"><i class="dot s-archived"></i>已归档</span>
+      </div>
+    </section>
+
+    <!-- 右栏：当日任务清单 -->
+    <aside class="panel day-panel">
+      <div class="day-head">
+        <h2>9 月 8 日 · <span class="num">4</span> 个任务到期</h2>
+      </div>
+      <div class="day-body">
+
+        <div class="task-card hover">
+          <div class="r1">
+            <span class="code">TSK-100237</span>
+            <span class="tag p1">P1</span>
+          </div>
+          <div class="task-title">移动端审批流联调与回归</div>
+          <div class="task-meta">
+            <i class="dot s-doing"></i>进行中
+            <span class="sep">·</span>李婷
+            <span class="sep">·</span><span class="time">到期 18:00</span>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="r1">
+            <span class="code">TSK-100241</span>
+            <span class="tag p0">P0</span>
+          </div>
+          <div class="task-title">支付网关超时告警排查</div>
+          <div class="task-meta">
+            <i class="dot s-todo"></i>待办
+            <span class="sep">·</span>王强
+            <span class="sep">·</span>到期 18:00
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="r1">
+            <span class="code">TSK-100245</span>
+            <span class="tag p2">P2</span>
+          </div>
+          <div class="task-title">↳ 权限矩阵文案校对<span style="color:#8A97A8;font-size:12px;">（父任务 TSK-100208）</span></div>
+          <div class="task-meta">
+            <i class="dot s-done"></i>已完成
+            <span class="sep">·</span>陈晓
+            <span class="sep">·</span><span class="time">到期 18:00</span>
+          </div>
+        </div>
+
+        <div class="task-card">
+          <div class="r1">
+            <span class="code">TSK-100249</span>
+            <span class="tag p3">P3</span>
+          </div>
+          <div class="task-title">周报模板字段梳理</div>
+          <div class="task-meta">
+            <i class="dot s-review"></i>待验收
+            <span class="sep">·</span>刘芳
+            <span class="sep">·</span><span class="time">到期 18:00</span>
+          </div>
+        </div>
+
+        <div class="day-tip">点击任务打开详情抽屉</div>
+      </div>
+    </aside>
+
+  </main>
+
+</body>
+</html>
