@@ -36,13 +36,6 @@
       "skillPath": "plugins/backend-development/skills/microservices-patterns/SKILL.md",
       "computedHash": "60bd815acd83afe78021284d960010d87e7ab785dc01b2d10794f08773ab597f"
     },
-    "mysql": {
-      "source": "git@github.com:planetscale/database-skills",
-      "sourceUrl": "git@github.com:planetscale/database-skills",
-      "sourceType": "git",
-      "skillPath": "skills/mysql/SKILL.md",
-      "computedHash": "6cb0725d61db4940f9eab79436753fe4ecb261f57ae8a08b2ac28676f82cbecc"
-    },
     "postgresql-table-design": {
       "source": "git@github.com:wshobson/agents",
       "sourceUrl": "git@github.com:wshobson/agents",

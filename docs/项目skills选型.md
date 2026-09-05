@@ -1,6 +1,6 @@
 # 任务管理系统 · 开发技能选型说明（skill-dev）
 
-> 技术栈：**Vue3（前端）+ Spring 微服务（后端）+ MySQL / PostgreSQL（数据库）+ 企业级页面设计**
+> 技术栈：**Vue3（前端）+ Spring 微服务（后端）+ PostgreSQL（数据库，已选定）+ 企业级页面设计**
 > 安装位置：`.workbuddy/skills/`（**项目级**，随项目目录走，团队共享）
 > 维护人：Work · 最后更新：2026-09-05
 
@@ -8,7 +8,7 @@
 
 ## 一、安装命令（已执行 ✅）
 
-以下 8 条命令已全部执行完成，技能已安装在 `.workbuddy/skills/`：
+以下 8 条命令已全部执行完成，技能安装在 `.workbuddy/skills/`：
 
 ```bash
 npx skills add git@github.com:obra/superpowers --skill brainstorming
@@ -23,6 +23,7 @@ npx skills add git@github.com:wshobson/agents --skill api-design-principles
 
 > 说明：`npx skills add` 官方 CLI 不识别 WorkBuddy 的项目级目录，安装后需确认技能最终落在 `.workbuddy/skills/`（本项目已核实全部到位）。
 > 换机/重装时，也可用 `git clone --depth 1 --filter=blob:none --sparse git@github.com:<owner/repo>.git` 稀疏克隆后直接拷贝对应技能目录，效果相同。
+> 数据库选型已定为 **PostgreSQL**：`mysql` 技能已按维护约定从三处技能目录（`.workbuddy/skills/`、`.dsh/skills/`、`.agents/skills/`）及 `skills-lock.json` 移除；上方命令列表保留其安装记录，重装时无需再执行 mysql 那条。
 
 ---
 
@@ -35,11 +36,10 @@ npx skills add git@github.com:wshobson/agents --skill api-design-principles
 | 3 | `vue-best-practices` | vuejs-ai/skills | 38.1K | 前端开发 | Vue3 组合式 API 最佳实践（23 篇参考） |
 | 4 | `java-springboot` | github/awesome-copilot | 19.9K | 后端开发 | GitHub 官方 Spring Boot 开发规范 |
 | 5 | `microservices-patterns` | wshobson/agents | 11.6K | 架构设计 | 微服务拆分、服务边界、事件驱动模式 |
-| 6 | `postgresql-table-design` | wshobson/agents | 24.9K | 数据库（选 PG 时） | PostgreSQL 表结构 / 索引 / 约束设计 |
-| 7 | `mysql` | planetscale/database-skills | 7.5K | 数据库（选 MySQL 时） | InnoDB schema / 索引 / 调优 / 事务（19 篇参考） |
-| 8 | `api-design-principles` | wshobson/agents | 27.7K | 接口设计 | REST / GraphQL API 设计原则 + 检查清单 |
+| 6 | `postgresql-table-design` | wshobson/agents | 24.9K | 数据库 | PostgreSQL 表结构 / 索引 / 约束设计 |
+| 7 | `api-design-principles` | wshobson/agents | 27.7K | 接口设计 | REST / GraphQL API 设计原则 + 检查清单 |
 
-> ⚠️ 6 和 7 是**二选一**：数据库最终选型确定后，可删除另一套。
+> 数据库已选定 PostgreSQL；原第 7 套 `mysql`（planetscale/database-skills）已移除。
 
 ---
 
@@ -70,10 +70,9 @@ npx skills add git@github.com:wshobson/agents --skill api-design-principles
 - **为什么选它**：后端定为"Spring 微服务"，任务/统计/日程/权限等服务怎么拆需要模式依据。
 - **文件**：SKILL.md + references/details.md。
 
-### 6 / 7. postgresql-table-design 与 mysql（数据库，二选一）
-- **postgresql-table-design**：PG 专属 schema 设计——数据类型、索引、约束、性能模式。
-- **mysql**：PlanetScale 官方技能，InnoDB 表设计、索引策略、查询调优、事务隔离、死锁、在线 DDL 等 19 个专题参考。
-- **为什么都装**：数据库选型未定，两套都备着；**定选型后删另一套**。
+### 6. postgresql-table-design（数据库）
+- **干什么**：PG 专属 schema 设计：数据类型、索引、约束、性能模式。
+- **为什么选它**：数据库已选定 PostgreSQL；原备选 `mysql`（PlanetScale 官方技能，InnoDB 表设计/索引/调优等 19 个专题）已随选型移除。
 
 ### 8. api-design-principles（接口设计）
 - **干什么**：REST 与 GraphQL API 设计原则，附设计检查清单与 REST API 模板。
@@ -91,7 +90,7 @@ npx skills add git@github.com:wshobson/agents --skill api-design-principles
 | 微服务拆分（任务/统计/日程/权限服务） | microservices-patterns + java-springboot |
 | 前后端 API 契约 | api-design-principles |
 | 权限管理模块（RBAC 落地） | java-springboot（Security）+ api-design-principles |
-| 库表设计（任务/用户/角色/权限矩阵/操作轨迹） | mysql 或 postgresql-table-design |
+| 库表设计（任务/用户/角色/权限矩阵/操作轨迹） | postgresql-table-design |
 
 ---
 
@@ -102,7 +101,7 @@ npx skills add git@github.com:wshobson/agents --skill api-design-principles
 | 更新技能 | 重新执行上方安装命令覆盖；CLI 安装方式下可用 `npx skills update` |
 | 新增技能 | 用 `find-skills` 技能或 `npx skills find <关键词>` 检索生态 |
 | 安全审计 | **新装任何第三方技能前**，先审 SKILL.md 与 scripts/（危险模式：base64/eval/外联/读密钥/删文件），P2 及以上才入库 |
-| 数据库选型确定 | 删除 mysql 或 postgresql-table-design 其中一套，并更新本文档 |
+| 数据库选型确定 | 已完成 ✅：选定 PostgreSQL，mysql 技能已从三处目录与 `skills-lock.json` 移除 |
 
 ---
 
@@ -116,5 +115,5 @@ npx skills add git@github.com:wshobson/agents --skill api-design-principles
 | java-springboot | 1 | 无 | ✅ P2 纯文档 |
 | microservices-patterns | 2 | 无 | ✅ P2 纯文档 |
 | postgresql-table-design | 2 | 无 | ✅ P2 纯文档 |
-| mysql | 19 | 无 | ✅ P2 纯文档 |
+| ~~mysql~~ | 19 | 无 | ✅ P2 纯文档（已随数据库选型移除） |
 | api-design-principles | 6 | assets/rest-api-template.py（模板资产，非执行逻辑） | ✅ P2 |
