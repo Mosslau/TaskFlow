@@ -1,0 +1,34 @@
+/* TaskFlow 主题令牌（UI 设计规范 v1.0 第 8 章） */
+:root {
+  --el-color-primary: #0E7C86;
+  --el-color-primary-light-3: #4AA3AB;
+  --el-color-primary-light-5: #87C2C8;
+  --el-color-primary-light-7: #BADDE0;
+  --el-color-primary-light-8: #CFE8EA;
+  --el-color-primary-light-9: #E3F2F3;
+  --el-color-primary-dark-2: #0A5F67;
+  --el-color-success: #2F9E6E;
+  --el-color-warning: #D9822B;
+  --el-color-danger: #C8493F;
+  --el-color-error: #C8493F;
+  --el-text-color-primary: #1F2D3D;
+  --el-text-color-regular: #5E6D82;
+  --el-text-color-secondary: #8A97A8;
+  --el-border-color: #D8DEE6;
+  --el-border-color-light: #E8ECF1;
+  --el-fill-color-light: #F6F7F9;
+  --el-border-radius-base: 6px;
+  --el-font-size-base: 14px;
+}
+
+/* 任务编号 / 时间 / KPI 数字逐位对齐（UI 设计规范第 3 章） */
+.tf-num {
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  color: #1F2D3D;
+  background: #F6F7F9;
+}

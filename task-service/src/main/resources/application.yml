@@ -1,0 +1,45 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: task-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+      config:
+        server-addr: 127.0.0.1:8848
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/task_db
+    username: postgres
+    password: root
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: root
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+
+taskflow:
+  jwt:
+    secret: ${JWT_SECRET:taskflow-dev-secret-please-override}
+    ttl: PT2H
+  attachment:
+    # 附件存储根路径（架构文档 2.4；本地文件系统，可配置）
+    root: ${ATTACHMENT_ROOT:/tmp/taskflow/attachments}

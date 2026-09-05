@@ -1,0 +1,36 @@
+server:
+  port: 8000 # Nacos 3.x 控制台占用 8080，网关用 8000
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+    gateway:
+      routes:
+        # 模块前缀路由（接口设计文档 1.1）
+        - id: auth-user-service
+          uri: lb://auth-user-service
+          predicates:
+            - Path=/auth/api/v1/**
+        - id: task-service
+          uri: lb://task-service
+          predicates:
+            - Path=/task/api/v1/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notification/api/v1/**
+        - id: stats-service
+          uri: lb://stats-service
+          predicates:
+            - Path=/stats/api/v1/**
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Methods, RETAIN_UNIQUE
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: root

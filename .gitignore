@@ -38,3 +38,11 @@ replay_pid*
 node_modules/
 dist/
 target/
+
+.cache/
+
+# Maven 工作区级本地仓库（本机 ~/Downloads 下的默认仓库受沙箱限制不可用）
+.m2/
+
+# pnpm 存储缓存
+.pnpm-store/
