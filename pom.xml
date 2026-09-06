@@ -105,6 +105,8 @@
                     <configuration>
                         <release>17</release>
                         <encoding>UTF-8</encoding>
+                        <!-- 保留方法参数名：@RequestParam/@PathVariable 不显式写 name 时靠反射取参 -->
+                        <parameters>true</parameters>
                     </configuration>
                 </plugin>
                 <plugin>

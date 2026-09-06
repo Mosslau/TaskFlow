@@ -1,20 +1,78 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, shallowRef } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../../stores/user'
+import { loginApi, resolveApiError } from '../../api/auth'
+import ForceChangePasswordDialog from './components/ForceChangePasswordDialog.vue'
 
 /**
  * 登录页：左右分栏布局（docs/ui/登录页.html 的 Vue 还原）。
- * M1 接入真实登录接口；当前按钮仅占位。
+ * M1 接入 POST /auth/api/v1/login；mustChangePassword=true 时弹强制改密对话框。
  */
+
+const router = useRouter()
+const userStore = useUserStore()
 
 const form = reactive({
   account: '',
   password: '',
 })
-const errorMessage = ref('')
+const errorMessage = shallowRef('')
+const submitting = shallowRef(false)
 
-function handleLogin() {
-  // TODO(M1)：调 POST /auth/api/v1/login，成功後 userStore.setLogin(...)
-  console.log('login', form.account)
+const pwdDialogVisible = shallowRef(false)
+
+/** 登录失败按错误码渲染内联错误条（接口设计文档第 6 章） */
+function resolveLoginError(error: unknown): string {
+  const { code, message, details } = resolveApiError(error)
+  switch (code) {
+    case 3002: {
+      const remaining = details?.remainingAttempts
+      return typeof remaining === 'number'
+        ? `账号或密码错误，还可尝试 ${remaining} 次`
+        : '账号或密码错误'
+    }
+    case 3003:
+      return '账号锁定中，请 15 分钟后重试'
+    case 3004:
+      return '账号已停用，请联系系统管理员'
+    default:
+      return message || '登录失败，请稍后重试'
+  }
+}
+
+async function handleLogin() {
+  errorMessage.value = ''
+  if (!form.account.trim()) {
+    errorMessage.value = '请输入账号'
+    return
+  }
+  if (!form.password) {
+    errorMessage.value = '请输入密码'
+    return
+  }
+  submitting.value = true
+  try {
+    const data = await loginApi({ account: form.account.trim(), password: form.password })
+    const { permissions, ...userInfo } = data.user
+    userStore.setLogin(data.token, userInfo, permissions)
+    if (data.user.mustChangePassword) {
+      // 强制改密：留在登录页弹对话框，改密成功后需重新登录
+      pwdDialogVisible.value = true
+    } else {
+      router.push('/')
+    }
+  } catch (error) {
+    errorMessage.value = resolveLoginError(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+/** 改密成功：旧令牌已全部失效，清空登录态回到登录页 */
+function handlePasswordChanged() {
+  userStore.logout()
+  form.password = ''
 }
 </script>
 
@@ -59,12 +117,13 @@ function handleLogin() {
           </el-form-item>
           <el-form-item label="密码">
             <el-input v-model="form.password" type="password" placeholder="请输入密码"
-                      size="large" show-password />
+                      size="large" show-password @keyup.enter="handleLogin" />
           </el-form-item>
 
-          <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
+          <div v-if="errorMessage" class="error-banner" role="alert">{{ errorMessage }}</div>
 
-          <el-button type="primary" size="large" class="login-btn" native-type="submit">
+          <el-button type="primary" size="large" class="login-btn" native-type="submit"
+                     :loading="submitting">
             登 录
           </el-button>
         </el-form>
@@ -73,6 +132,12 @@ function handleLogin() {
       </div>
       <p class="page-footer">TaskFlow v1.0 · 仅限企业内部使用</p>
     </main>
+
+    <ForceChangePasswordDialog
+      v-model:visible="pwdDialogVisible"
+      :old-password="form.password"
+      @success="handlePasswordChanged"
+    />
   </div>
 </template>
 
@@ -166,9 +231,13 @@ function handleLogin() {
   margin: 4px 0 24px;
 }
 .error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: rgba(200, 73, 63, 0.08);
   color: #C8493F;
   font-size: 12px;
+  line-height: 1.5;
   border-radius: 6px;
   padding: 8px 12px;
   margin-bottom: 16px;

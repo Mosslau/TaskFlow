@@ -34,3 +34,9 @@ spring:
       host: 127.0.0.1
       port: 6379
       password: root
+
+taskflow:
+  jwt:
+    # 与各服务同一密钥（生产走环境变量 JWT_SECRET）
+    secret: ${JWT_SECRET:taskflow-dev-secret-please-override}
+    ttl: PT2H

@@ -84,4 +84,14 @@ public class RedisUtils {
     public boolean setIfAbsent(String key, String value, Duration ttl) {
         return Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(key, value, ttl));
     }
+
+    /**
+     * 原子自增（登录失败计数等场景）。
+     *
+     * @param key 计数键
+     * @return 自增后的值
+     */
+    public Long increment(String key) {
+        return redis.opsForValue().increment(key);
+    }
 }

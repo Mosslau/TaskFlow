@@ -7,11 +7,21 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('../views/login/LoginView.vue'),
+      meta: { title: '登录' },
     },
     {
       path: '/',
-      name: 'home',
-      component: () => import('../views/home/HomeView.vue'),
+      component: () => import('../layouts/MainLayout.vue'),
+      redirect: '/perm',
+      children: [
+        {
+          path: 'perm',
+          name: 'perm',
+          component: () => import('../views/perm/PermView.vue'),
+          meta: { title: '权限管理' },
+        },
+        // 任务列表 / 统计总览 / 日程 / 通知中心：后续里程碑接入
+      ],
     },
   ],
 })
@@ -21,6 +31,9 @@ router.beforeEach((to) => {
   const token = localStorage.getItem('taskflow_token')
   if (!token && to.path !== '/login') {
     return '/login'
+  }
+  if (token && to.path === '/login') {
+    return '/'
   }
   return true
 })

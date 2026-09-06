@@ -19,11 +19,43 @@
   --el-fill-color-light: #F6F7F9;
   --el-border-radius-base: 6px;
   --el-font-size-base: 14px;
+  /* 表格规范（UI 设计规范 5.2）：表头浅底、悬停行纸灰 */
+  --el-table-header-bg-color: #E8ECF1;
+  --el-table-header-text-color: #5E6D82;
+  --el-table-row-hover-bg-color: #F6F7F9;
+  --el-table-border-color: #D8DEE6;
 }
 
 /* 任务编号 / 时间 / KPI 数字逐位对齐（UI 设计规范第 3 章） */
 .tf-num {
   font-variant-numeric: tabular-nums;
+}
+
+/* 白色容器：圆角 8px、1px #D8DEE6 边框（UI 设计规范 4.2） */
+.tf-card {
+  background: #FFFFFF;
+  border: 1px solid #D8DEE6;
+  border-radius: 8px;
+  padding: 16px 24px 24px;
+}
+
+/* 状态色点：先色点后文字，直径 8px（UI 设计规范 2.2） */
+.tf-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* 表格行高 48px（UI 设计规范 5.2） */
+.el-table .el-table__row {
+  height: 48px;
+}
+.el-table .el-table__header .el-table__cell {
+  font-size: 13px;
+  font-weight: 500;
 }
 
 body {
