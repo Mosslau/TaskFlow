@@ -153,8 +153,8 @@ export function resetUserPasswordApi(id: number) {
 }
 
 // ---------- 部门管理 ----------
-export function fetchDepartmentsApi() {
-  return http.get('/auth/api/v1/departments') as Promise<DepartmentItem[]>
+export function fetchDepartmentsApi(keyword?: string) {
+  return http.get('/auth/api/v1/departments', { params: { keyword } }) as Promise<DepartmentItem[]>
 }
 
 export function createDepartmentApi(name: string) {

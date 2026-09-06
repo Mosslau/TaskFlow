@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -29,10 +30,10 @@ public class DepartmentController {
         this.userService = userService;
     }
 
-    /** 部门列表（接口 #11，含在职人数；登录即可，供表单下拉） */
+    /** 部门列表（接口 #11，含在职人数，支持名称关键字筛选；登录即可，供表单下拉） */
     @GetMapping
-    public Result<List<Map<String, Object>>> list() {
-        return Result.ok(userService.listDepartments());
+    public Result<List<Map<String, Object>>> list(@RequestParam(required = false) String keyword) {
+        return Result.ok(userService.listDepartments(keyword));
     }
 
     /** 新增部门（接口 #12，名称唯一） */

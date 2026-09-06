@@ -17,11 +17,13 @@ import { formatDateTime } from '../../../utils/format'
  */
 const loading = shallowRef(false)
 const departments = ref<DepartmentItem[]>([])
+/** 部门名称关键字（模糊筛选） */
+const keyword = shallowRef('')
 
 async function loadDepartments() {
   loading.value = true
   try {
-    departments.value = await fetchDepartmentsApi()
+    departments.value = await fetchDepartmentsApi(keyword.value.trim() || undefined)
   } catch (error) {
     ElMessage.error(resolveApiError(error).message)
   } finally {
@@ -110,6 +112,14 @@ async function handleDelete(row: DepartmentItem) {
 <template>
   <div class="dept-tab">
     <div class="toolbar">
+      <el-input
+        v-model="keyword"
+        placeholder="按部门名称搜索"
+        clearable
+        class="search-input"
+        @change="loadDepartments"
+        @clear="loadDepartments"
+      />
       <el-button v-perm="'manageUser'" type="primary" class="create-btn" @click="openCreate">
         新增部门
       </el-button>
@@ -164,7 +174,11 @@ async function handleDelete(row: DepartmentItem) {
 <style scoped>
 .toolbar {
   display: flex;
+  gap: 12px;
   margin-bottom: 16px;
+}
+.search-input {
+  width: 240px;
 }
 .create-btn {
   margin-left: auto;

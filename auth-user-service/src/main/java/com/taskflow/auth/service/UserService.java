@@ -177,10 +177,15 @@ public class UserService {
     // ========== 部门（PRD 4.5.2）==========
 
     /**
-     * 部门列表（含在职用户数）。
+     * 部门列表（含在职用户数；支持按名称关键字模糊筛选）。
+     *
+     * @param keyword 名称关键字，可空
      */
-    public List<Map<String, Object>> listDepartments() {
-        return departmentMapper.selectList(new LambdaQueryWrapper<Department>().orderByAsc(Department::getId))
+    public List<Map<String, Object>> listDepartments(String keyword) {
+        LambdaQueryWrapper<Department> qw = new LambdaQueryWrapper<Department>()
+                .like(StringUtils.hasText(keyword), Department::getName, keyword)
+                .orderByAsc(Department::getId);
+        return departmentMapper.selectList(qw)
                 .stream().map(d -> {
                     long count = userMapper.selectCount(new LambdaQueryWrapper<AppUser>()
                             .eq(AppUser::getDepartmentId, d.getId())

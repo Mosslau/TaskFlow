@@ -20,15 +20,16 @@ const HANDLE_STYLE =
 
 function setupHandles(el: HTMLElement) {
   const headerRow = el.querySelector<HTMLElement>('.el-table__header-wrapper thead tr')
-  const colgroup = el.querySelector<HTMLElement>('.el-table__header-wrapper colgroup')
-  if (!headerRow || !colgroup) return
+  const headerCols = el.querySelectorAll<HTMLElement>('.el-table__header-wrapper colgroup col')
+  // 关键：el-table 的表体是独立的 table，有自己的 colgroup，必须同步改（否则只动表头）
+  const bodyCols = el.querySelectorAll<HTMLElement>('.el-table__body-wrapper colgroup col')
+  if (!headerRow || headerCols.length === 0) return
 
   const ths = Array.from(headerRow.children) as HTMLElement[]
-  const cols = Array.from(colgroup.children) as HTMLElement[]
 
   ths.forEach((th, index) => {
     // 最后一列（操作列）与已初始化的单元格跳过
-    if (index === ths.length - 1 || index >= cols.length) return
+    if (index === ths.length - 1 || index >= headerCols.length) return
     if (th.querySelector('.tf-col-resize-handle')) return
 
     const handle = document.createElement('div')
@@ -40,11 +41,14 @@ function setupHandles(el: HTMLElement) {
       e.preventDefault()
       const startX = e.clientX
       const startWidth = th.offsetWidth
-      const col = cols[index]
 
       const onMove = (ev: MouseEvent) => {
         const width = Math.max(MIN_WIDTH, startWidth + ev.clientX - startX)
-        col.style.width = `${width}px`
+        // 表头与表体的 col 同步调宽
+        headerCols[index].style.width = `${width}px`
+        if (bodyCols[index]) {
+          bodyCols[index].style.width = `${width}px`
+        }
       }
       const onUp = () => {
         document.removeEventListener('mousemove', onMove)
