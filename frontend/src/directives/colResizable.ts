@@ -24,8 +24,7 @@ const HANDLE_STYLE =
 function setupHandles(el: HTMLElement) {
   const headerRow = el.querySelector<HTMLElement>('.el-table__header-wrapper thead tr')
   const headerCols = el.querySelectorAll<HTMLElement>('.el-table__header-wrapper colgroup col')
-  // 关键：el-table 的表体是独立的 table，有自己的 colgroup，必须同步改（否则只动表头）
-  const bodyCols = el.querySelectorAll<HTMLElement>('.el-table__body-wrapper colgroup col')
+  // 注意：el-table 的表体是独立的 table，有自己的 colgroup；拖动时在 onMove 里实时重取并同步改
   if (!headerRow || headerCols.length === 0) return
 
   const ths = Array.from(headerRow.children) as HTMLElement[]
