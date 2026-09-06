@@ -1,10 +1,13 @@
 package com.taskflow.auth.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.taskflow.auth.config.AuthContext;
 import com.taskflow.auth.config.RequirePerm;
 import com.taskflow.auth.service.AuditService;
 import com.taskflow.common.Result;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,5 +42,17 @@ public class AuditLogController {
                 "total", p.getTotal(),
                 "page", p.getCurrent(),
                 "size", p.getSize()));
+    }
+
+    /**
+     * 内部审计写入（登录即可，供其他服务经 Feign 调用——如 task-service 删除任务留痕，
+     * PRD 4.1.2：删除动作写入审计日志）。审计日志的唯一写者仍是本服务（铁律 1）。
+     *
+     * @param body {action, changeDetail}
+     */
+    @PostMapping
+    public Result<Void> write(@RequestBody Map<String, String> body) {
+        auditService.record(AuthContext.getUserId(), body.get("action"), body.get("changeDetail"));
+        return Result.ok();
     }
 }

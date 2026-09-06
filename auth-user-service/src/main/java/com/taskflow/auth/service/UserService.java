@@ -174,6 +174,25 @@ public class UserService {
         return Map.of("newPassword", newPassword);
     }
 
+    /**
+     * 用户详情（登录即可）：供前端展示与 task-service Feign 校验处理人合法性
+     * （角色须为 taskAdmin/user 且在职）。
+     */
+    public Map<String, Object> getUserDetail(Long id) {
+        AppUser user = mustExist(id);
+        Role role = roleMapper.selectById(user.getRoleId());
+        return Map.of(
+                "id", user.getId(),
+                "name", user.getName(),
+                "account", user.getAccount(),
+                "departmentId", user.getDepartmentId(),
+                "roleId", user.getRoleId(),
+                "roleKey", role == null ? "" : role.getRoleKey(),
+                "email", user.getEmail(),
+                "status", user.getStatus(),
+                "createdAt", user.getCreatedAt().toString());
+    }
+
     // ========== 部门（PRD 4.5.2）==========
 
     /**

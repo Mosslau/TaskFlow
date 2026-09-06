@@ -50,6 +50,14 @@ public class UserController {
     }
 
     /**
+     * 用户详情（登录即可；供前端展示与 task-service Feign 校验处理人合法性）。
+     */
+    @GetMapping("/{id}")
+    public Result<Map<String, Object>> detail(@PathVariable Long id) {
+        return Result.ok(userService.getUserDetail(id));
+    }
+
+    /**
      * 新增用户（接口 #6）：返回初始密码（仅此一次），首次登录强制改密。
      */
     @PostMapping
