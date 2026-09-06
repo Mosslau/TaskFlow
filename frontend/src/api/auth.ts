@@ -112,6 +112,20 @@ export function changePasswordApi(body: { oldPassword: string; newPassword: stri
   return http.put('/auth/api/v1/password', body) as Promise<null>
 }
 
+// ---------- 人员下拉（登录即可，无需 manageUser） ----------
+export interface UserLookupItem {
+  id: number
+  name: string
+  account: string
+  departmentId: number
+  departmentName: string
+  status: 'active' | 'disabled'
+}
+
+export function lookupUsersApi(params?: { keyword?: string; departmentId?: number }) {
+  return http.get('/auth/api/v1/users/lookup', { params }) as Promise<UserLookupItem[]>
+}
+
 // ---------- 用户管理 ----------
 export interface UserQuery {
   keyword?: string

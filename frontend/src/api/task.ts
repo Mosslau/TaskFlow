@@ -108,11 +108,16 @@ export interface TaskItem {
   creatorName: string
   assigneeId: number
   assigneeName: string
+  assigneeDepartmentName?: string | null
   dueAt: string | null
   createdAt: string
   updatedAt: string
   parentId: number | null
   parentTaskNo: string | null
+  /** 树形表格前端字段：是否有子任务（顶层行默认 true，展开后按实际结果隐藏箭头） */
+  hasChildren?: boolean
+  /** 树形表格前端字段：懒加载的子任务 */
+  children?: TaskItem[]
 }
 
 export interface TaskDetail extends TaskItem {
@@ -131,6 +136,8 @@ export interface TimelineItem {
 export interface TaskDetailResult {
   task: TaskDetail
   timeline: TimelineItem[]
+  /** 子任务清单（顶层任务的详情才有内容；PRD 4.1.7） */
+  subtasks?: TaskItem[]
 }
 
 export type TaskScope = 'all' | 'mine' | 'assigned' | 'overdue'
@@ -142,6 +149,12 @@ export interface TaskQuery {
   taskType?: string
   creatorId?: number
   assigneeId?: number
+  /** 处理人部门筛选 */
+  assigneeDeptId?: number
+  /** 查某父任务的子任务（树形表格懒加载） */
+  parentId?: number
+  /** 只查顶层任务（树形表格主查询） */
+  topLevel?: boolean
   scope?: TaskScope
   page: number
   size: number

@@ -16,7 +16,7 @@ import {
   type TaskScope,
   type TaskStatus,
 } from '../../api/task'
-import { resolveApiError } from '../../api/auth'
+import { fetchDepartmentsApi, resolveApiError, type DepartmentItem } from '../../api/auth'
 import { formatDateTime } from '../../utils/format'
 import { useUserStore } from '../../stores/user'
 import { useTaskUserOptions } from '../../composables/useTaskUserOptions'
@@ -24,15 +24,19 @@ import TaskActionDialogs from '../../components/TaskActionDialogs.vue'
 import TaskDetailDrawer from '../../components/TaskDetailDrawer.vue'
 
 /**
- * 任务列表页（M2）：筛选栏（关键字 / 状态 / 优先级 / 类型 / 创建人 / 处理人 / 范围分段）
- * + 任务表格（v-col-resizable 列宽拖拽，行内操作悬停显现）+ 新建任务弹窗 + 详情抽屉。
+ * 任务列表页（M2）：筛选栏（关键字 / 状态 / 优先级 / 类型 / 创建人 / 处理人 / 处理人部门 / 范围分段）
+ * + 树形任务表格（顶层任务分页，子任务懒加载展开；v-col-resizable 列宽拖拽，行内操作悬停显现）
+ * + 新建任务弹窗 + 详情抽屉。
  * 接口：task-service 4.1（GET/POST /task/api/v1/tasks）；权限点见 UI 规范 5.1。
  */
 
 const userStore = useUserStore()
 
-// ---------- 人员选项（创建人 / 处理人筛选与表单共用；无 manageUser 权限时降级为「我」） ----------
-const { userOptions, degraded, loadUserOptions } = useTaskUserOptions()
+// ---------- 人员选项（创建人 / 处理人筛选与表单共用，users/lookup 登录即可） ----------
+const { userOptions, loadUserOptions } = useTaskUserOptions()
+
+// ---------- 部门选项（处理人部门筛选，登录即可） ----------
+const departments = ref<DepartmentItem[]>([])
 
 // ---------- 筛选栏 ----------
 const filters = reactive<{
@@ -42,6 +46,7 @@ const filters = reactive<{
   taskType: string
   creatorId: number | undefined
   assigneeId: number | undefined
+  assigneeDeptId: number | undefined
   scope: TaskScope
 }>({
   keyword: '',
@@ -50,6 +55,7 @@ const filters = reactive<{
   taskType: '',
   creatorId: undefined,
   assigneeId: undefined,
+  assigneeDeptId: undefined,
   scope: 'all',
 })
 
@@ -66,26 +72,51 @@ const taskList = ref<TaskItem[]>([])
 const total = shallowRef(0)
 const page = shallowRef(1)
 const size = shallowRef(20)
+/** 每次主查询成功后递增，强制重建表格以清空懒加载子任务缓存（防止筛选/操作后展示过期子任务） */
+const tableEpoch = shallowRef(0)
+
+/** 当前筛选条件 → 接口参数（主查询与子任务懒加载共用，筛选对两层都生效） */
+function buildFilterParams(): Omit<TaskQuery, 'page' | 'size'> {
+  const params: Omit<TaskQuery, 'page' | 'size'> = {}
+  if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
+  if (filters.status) params.status = filters.status
+  if (filters.priority) params.priority = filters.priority
+  if (filters.taskType) params.taskType = filters.taskType
+  if (filters.creatorId) params.creatorId = filters.creatorId
+  if (filters.assigneeId) params.assigneeId = filters.assigneeId
+  if (filters.assigneeDeptId) params.assigneeDeptId = filters.assigneeDeptId
+  if (filters.scope !== 'all') params.scope = filters.scope
+  return params
+}
 
 async function loadTasks() {
   loading.value = true
   try {
-    const params: TaskQuery = { page: page.value, size: size.value }
-    if (filters.keyword.trim()) params.keyword = filters.keyword.trim()
-    if (filters.status) params.status = filters.status
-    if (filters.priority) params.priority = filters.priority
-    if (filters.taskType) params.taskType = filters.taskType
-    if (filters.creatorId) params.creatorId = filters.creatorId
-    if (filters.assigneeId) params.assigneeId = filters.assigneeId
-    if (filters.scope !== 'all') params.scope = filters.scope
-    const data = await fetchTasksApi(params)
-    taskList.value = data.list
+    const data = await fetchTasksApi({
+      ...buildFilterParams(),
+      topLevel: true,
+      page: page.value,
+      size: size.value,
+    })
+    // 顶层行先标记 hasChildren，展开时懒加载；无子任务返回空数组后箭头自动消失
+    taskList.value = data.list.map((t) => ({ ...t, hasChildren: true }))
     total.value = data.total
+    tableEpoch.value++
   } catch (error) {
     ElMessage.error(resolveApiError(error).message)
   } finally {
     loading.value = false
   }
+}
+
+/** 树形表格懒加载子任务：GET /tasks?parentId={row.id}（不分页，筛选条件同样作用于子任务层） */
+function loadChildren(row: TaskItem, _treeNode: unknown, resolve: (data: TaskItem[]) => void) {
+  fetchTasksApi({ ...buildFilterParams(), parentId: row.id, page: 1, size: 50 })
+    .then((data) => resolve(data.list))
+    .catch((error) => {
+      ElMessage.error(resolveApiError(error).message)
+      resolve([])
+    })
 }
 
 /** 筛选变更：回到第 1 页并重新加载 */
@@ -111,6 +142,7 @@ function resetFilters() {
   filters.taskType = ''
   filters.creatorId = undefined
   filters.assigneeId = undefined
+  filters.assigneeDeptId = undefined
   filters.scope = 'all'
   handleFilterChange()
 }
@@ -118,6 +150,13 @@ function resetFilters() {
 onMounted(() => {
   loadTasks()
   loadUserOptions()
+  fetchDepartmentsApi()
+    .then((list) => {
+      departments.value = list
+    })
+    .catch((error) => {
+      ElMessage.error(resolveApiError(error).message)
+    })
 })
 
 // ---------- 新建任务（POST /tasks，权限点 create） ----------
@@ -149,6 +188,9 @@ const createForm = reactive<{
   dueAt: defaultDueAt(),
 })
 
+/** 子任务模式：非空表示正在为某个父任务创建子任务（类型继承父任务，PRD 4.1.7） */
+const createParent = shallowRef<TaskItem | null>(null)
+
 const createRules: FormRules = {
   title: [
     { required: true, message: '请输入任务标题', trigger: 'blur' },
@@ -161,12 +203,24 @@ const createRules: FormRules = {
 }
 
 function openCreate() {
+  createParent.value = null
   createForm.title = ''
   createForm.description = ''
   createForm.taskType = TASK_TYPES[0]
   createForm.priority = 'P2'
-  // 人员选项降级时默认指派给自己
-  createForm.assigneeId = degraded.value ? userStore.userInfo?.id : undefined
+  createForm.assigneeId = undefined
+  createForm.dueAt = defaultDueAt()
+  createVisible.value = true
+}
+
+/** 在父任务下新建子任务（列表行内"添加子任务"与详情抽屉入口共用） */
+function openSubtaskCreate(parent: TaskItem) {
+  createParent.value = parent
+  createForm.title = ''
+  createForm.description = ''
+  createForm.taskType = parent.taskType // 类型继承父任务（表单中禁用展示）
+  createForm.priority = parent.priority
+  createForm.assigneeId = parent.assigneeId
   createForm.dueAt = defaultDueAt()
   createVisible.value = true
 }
@@ -185,9 +239,14 @@ async function submitCreate() {
       priority: createForm.priority,
       assigneeId: createForm.assigneeId!,
       dueAt: createForm.dueAt ? createForm.dueAt.toISOString() : undefined,
+      parentId: createParent.value?.id, // 子任务模式：挂在父任务下
     })
     createVisible.value = false
-    ElMessage.success('已创建任务')
+    ElMessage.success(createParent.value ? '已创建子任务' : '已创建任务')
+    // 子任务创建成功且抽屉打开着父任务：强制抽屉重新拉取（子任务清单刷新）
+    if (createParent.value && drawerVisible.value) {
+      drawerEpoch.value++
+    }
     handleFilterChange()
   } catch (error) {
     ElMessage.error(resolveApiError(error).message)
@@ -215,10 +274,17 @@ const openTransfer = (row: TaskItem) => actionDialogsRef.value?.openTransfer(row
 // ---------- 详情抽屉 ----------
 const drawerVisible = shallowRef(false)
 const drawerTaskId = shallowRef<number | null>(null)
+/** 抽屉重载计数：子任务创建成功等场景强制抽屉重新拉取详情 */
+const drawerEpoch = shallowRef(0)
 
 function openDetail(row: TaskItem) {
   drawerTaskId.value = row.id
   drawerVisible.value = true
+}
+
+/** 抽屉内点击子任务：切换抽屉到该子任务详情 */
+function openSubtaskDetail(taskId: number) {
+  drawerTaskId.value = taskId
 }
 
 /** 抽屉或快捷操作成功后刷新列表 */
@@ -322,6 +388,16 @@ function handleChanged() {
         >
           <el-option v-for="u in userOptions" :key="u.id" :label="u.name" :value="u.id" />
         </el-select>
+        <el-select
+          v-model="filters.assigneeDeptId"
+          placeholder="处理人部门"
+          clearable
+          filterable
+          class="filter-select filter-select--dept"
+          @change="handleFilterChange"
+        >
+          <el-option v-for="d in departments" :key="d.id" :label="d.name" :value="d.id" />
+        </el-select>
         <el-button link type="primary" class="filter-reset" @click="resetFilters">
           重置筛选
         </el-button>
@@ -330,7 +406,16 @@ function handleChanged() {
 
     <!-- 任务表格 -->
     <div class="tf-card table-card">
-      <el-table v-loading="loading" v-col-resizable :data="taskList">
+      <el-table
+        :key="tableEpoch"
+        v-loading="loading"
+        v-col-resizable
+        :data="taskList"
+        row-key="id"
+        lazy
+        :load="loadChildren"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+      >
         <el-table-column label="编号" width="110">
           <template #default="{ row }">
             <span class="tf-num col-no">{{ row.taskNo }}</span>
@@ -338,8 +423,7 @@ function handleChanged() {
         </el-table-column>
         <el-table-column label="标题" min-width="240" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.parentTaskNo" class="sub-prefix"
-              >↳ <span class="tf-num">[{{ row.parentTaskNo }}]</span>&nbsp;</span
+            <span v-if="row.parentTaskNo" class="tf-num parent-no">[{{ row.parentTaskNo }}] </span
             ><span>{{ row.title }}</span>
           </template>
         </el-table-column>
@@ -370,11 +454,15 @@ function handleChanged() {
         <el-table-column label="处理人" width="90" show-overflow-tooltip>
           <template #default="{ row }">{{ row.assigneeName || '—' }}</template>
         </el-table-column>
-        <el-table-column label="到期时间" width="150">
+        <el-table-column label="处理人部门" width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.assigneeDepartmentName || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="到期时间" width="170">
           <template #default="{ row }">
             <span class="tf-num due" :class="{ overdue: isTaskOverdue(row) }">{{
               formatDateTime(row.dueAt)
             }}</span>
+            <span v-if="isTaskOverdue(row)" class="overdue-tag">已逾期</span>
           </template>
         </el-table-column>
         <el-table-column label="进度" width="120">
@@ -396,9 +484,17 @@ function handleChanged() {
             <span class="tf-num upd-time">{{ formatDateTime(row.updatedAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="190" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <div class="row-ops">
+              <el-button
+                v-if="!row.parentId && userStore.hasPerm('create')"
+                link
+                type="primary"
+                :disabled="opsLocked(row)"
+                @click="openSubtaskCreate(row)"
+                >添加子任务</el-button
+              >
               <el-button
                 v-if="userStore.hasPerm('prioOwn')"
                 link
@@ -448,10 +544,10 @@ function handleChanged() {
       </div>
     </div>
 
-    <!-- 新建任务 -->
+    <!-- 新建任务 / 新建子任务 -->
     <el-dialog
       v-model="createVisible"
-      title="新建任务"
+      :title="createParent ? `新建子任务（父任务：${createParent.taskNo}）` : '新建任务'"
       width="520px"
       align-center
       :close-on-click-modal="false"
@@ -483,9 +579,10 @@ function handleChanged() {
         </el-form-item>
         <div class="form-grid">
           <el-form-item label="任务类型" prop="taskType">
-            <el-select v-model="createForm.taskType" class="full-width">
+            <el-select v-model="createForm.taskType" class="full-width" :disabled="!!createParent">
               <el-option v-for="t in TASK_TYPES" :key="t" :label="t" :value="t" />
             </el-select>
+            <div v-if="createParent" class="inherit-tip">子任务类型继承父任务（{{ createParent.taskType }}）</div>
           </el-form-item>
           <el-form-item label="优先级" prop="priority">
             <el-select v-model="createForm.priority" class="full-width">
@@ -515,7 +612,7 @@ function handleChanged() {
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" :loading="createSubmitting" @click="submitCreate">
-          新建任务
+          {{ createParent ? '新建子任务' : '新建任务' }}
         </el-button>
       </template>
     </el-dialog>
@@ -528,7 +625,14 @@ function handleChanged() {
     />
 
     <!-- 任务详情抽屉 -->
-    <TaskDetailDrawer v-model="drawerVisible" :task-id="drawerTaskId" @changed="handleChanged" />
+    <TaskDetailDrawer
+      :key="drawerEpoch"
+      v-model="drawerVisible"
+      :task-id="drawerTaskId"
+      @changed="handleChanged"
+      @create-subtask="openSubtaskCreate"
+      @open-subtask="openSubtaskDetail"
+    />
   </div>
 </template>
 
@@ -576,6 +680,9 @@ function handleChanged() {
 .filter-select {
   width: 128px;
 }
+.filter-select--dept {
+  width: 150px;
+}
 .filter-reset {
   margin-left: 4px;
 }
@@ -618,6 +725,10 @@ function handleChanged() {
 .sub-prefix {
   color: #8A97A8;
 }
+.parent-no {
+  color: #8A97A8;
+  font-size: 12px;
+}
 .type-tag {
   display: inline-block;
   height: 22px;
@@ -636,6 +747,21 @@ function handleChanged() {
 .due.overdue {
   color: #C8493F;
   font-weight: 500;
+}
+.overdue-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #C8493F;
+  background: rgba(200, 73, 63, 0.08);
+  border-radius: 4px;
+}
+.inherit-tip {
+  font-size: 12px;
+  color: #8A97A8;
+  margin-top: 4px;
 }
 .progress-cell {
   display: flex;

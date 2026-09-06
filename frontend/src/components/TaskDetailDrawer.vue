@@ -14,6 +14,7 @@ import {
   taskStatusMeta,
   updateProgressApi,
   type TaskDetail,
+  type TaskItem,
   type TimelineItem,
 } from '../api/task'
 import { resolveApiError } from '../api/auth'
@@ -37,6 +38,10 @@ const emit = defineEmits<{
   'update:modelValue': [boolean]
   /** 任务发生变更（状态机动作或字段调整成功），父组件应刷新列表 */
   changed: []
+  /** 请求在该任务下新建子任务（由父组件打开新建弹窗，parentId 预填） */
+  createSubtask: [task: TaskDetail]
+  /** 请求打开某个子任务的详情（父组件切换抽屉任务） */
+  openSubtask: [taskId: number]
 }>()
 
 const userStore = useUserStore()
@@ -51,6 +56,8 @@ const visible = computed({
 const loading = shallowRef(false)
 const task = shallowRef<TaskDetail | null>(null)
 const timeline = shallowRef<TimelineItem[]>([])
+/** 子任务清单（顶层任务才有；PRD 4.1.7） */
+const subtasks = shallowRef<TaskItem[]>([])
 
 async function loadDetail() {
   if (!props.taskId) return
@@ -58,6 +65,7 @@ async function loadDetail() {
   try {
     const data = await fetchTaskDetailApi(props.taskId)
     task.value = data.task
+    subtasks.value = data.subtasks ?? []
     // 时间线倒序（最新在前）
     timeline.value = [...(data.timeline ?? [])].sort(
       (a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id,
@@ -378,6 +386,39 @@ async function handleActionChanged() {
           <div class="bar"><i :style="{ width: task.progress + '%' }"></i></div>
         </div>
 
+        <!-- 子任务（PRD 4.1.7：父任务详情展示子任务清单 + 快捷创建） -->
+        <div v-if="!task.parentId" class="d-sec subtask-sec">
+          <div class="sec-title">
+            子任务（{{ subtasks.length }}）
+            <el-button
+              v-if="userStore.hasPerm('create') && task.status !== 'close'"
+              link
+              type="primary"
+              class="subtask-add"
+              @click="emit('createSubtask', task)"
+              >＋ 新建子任务</el-button
+            >
+          </div>
+          <div v-if="subtasks.length" class="subtask-list">
+            <div
+              v-for="st in subtasks"
+              :key="st.id"
+              class="subtask-item"
+              @click="emit('openSubtask', st.id)"
+            >
+              <span class="st-no tf-num">{{ st.taskNo }}</span>
+              <span class="st-title">{{ st.title }}</span>
+              <span class="st-status">
+                <i class="st-dot" :style="{ backgroundColor: taskStatusMeta(st.status).color }"></i>
+                {{ taskStatusMeta(st.status).name }}
+              </span>
+              <span class="st-assignee">{{ st.assigneeName || '—' }}</span>
+              <span class="st-progress tf-num">{{ st.progress }}%</span>
+            </div>
+          </div>
+          <div v-else class="timeline-empty">暂无子任务</div>
+        </div>
+
         <!-- 操作时间线（倒序，竖线 + 色点） -->
         <div class="d-sec timeline-sec">
           <div class="sec-title">操作时间线</div>
@@ -560,6 +601,73 @@ async function handleActionChanged() {
   font-weight: 600;
   color: #1F2D3D;
   margin-bottom: 14px;
+}
+
+/* 子任务清单 */
+.subtask-sec .sec-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.subtask-add {
+  font-size: 13px;
+}
+.subtask-list {
+  border: 1px solid #E8ECF1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid #E8ECF1;
+}
+.subtask-item:last-child {
+  border-bottom: none;
+}
+.subtask-item:hover {
+  background: #F6F7F9;
+}
+.st-no {
+  color: #8A97A8;
+  width: 96px;
+  flex-shrink: 0;
+}
+.st-title {
+  flex: 1;
+  color: #1F2D3D;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #5E6D82;
+  width: 80px;
+  flex-shrink: 0;
+}
+.st-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.st-assignee {
+  color: #5E6D82;
+  width: 64px;
+  flex-shrink: 0;
+}
+.st-progress {
+  color: #5E6D82;
+  width: 44px;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 /* 字段区双列 */
