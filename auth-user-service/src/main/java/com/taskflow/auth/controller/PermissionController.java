@@ -30,12 +30,12 @@ public class PermissionController {
     /**
      * 读取完整权限矩阵（接口 #16）。
      *
-     * @return [{ roleKey, permissions: {权限点: 开关} }]
+     * @return { matrix: [{ roleKey, permissions: {权限点: 开关} }] }
      */
     @GetMapping("/matrix")
     @RequirePerm("setPerm")
-    public Result<List<Map<String, Object>>> getMatrix() {
-        return Result.ok(permissionService.getMatrix());
+    public Result<Map<String, Object>> getMatrix() {
+        return Result.ok(Map.of("matrix", permissionService.getMatrix()));
     }
 
     /**
