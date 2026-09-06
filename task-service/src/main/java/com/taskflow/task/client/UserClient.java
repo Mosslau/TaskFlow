@@ -22,4 +22,15 @@ public interface UserClient {
      */
     @GetMapping("/users/{id}")
     Map<String, Object> getUser(@PathVariable("id") Long id);
+
+    /**
+     * 用户简明列表（姓名解析与部门筛选用）。
+     *
+     * @param keyword      姓名/账号关键字，可空
+     * @param departmentId 部门 id，可空
+     * @return 信封包裹的 [{id, name, account, departmentId, departmentName, status}]
+     */
+    @GetMapping("/users/lookup")
+    Map<String, Object> lookup(@org.springframework.web.bind.annotation.RequestParam(required = false) String keyword,
+                               @org.springframework.web.bind.annotation.RequestParam(required = false) Long departmentId);
 }

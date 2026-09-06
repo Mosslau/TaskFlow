@@ -43,11 +43,14 @@ public class TaskController {
             @RequestParam(required = false) String taskType,
             @RequestParam(required = false) Long creatorId,
             @RequestParam(required = false) Long assigneeId,
+            @RequestParam(required = false) Long assigneeDeptId,
+            @RequestParam(required = false) Long parentId,
+            @RequestParam(defaultValue = "false") boolean topLevel,
             @RequestParam(defaultValue = "all") String scope,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Page<Task> p = taskService.page(keyword, status, priority, taskType,
-                creatorId, assigneeId, scope, page, size);
+        Page<Map<String, Object>> p = taskService.page(keyword, status, priority, taskType,
+                creatorId, assigneeId, assigneeDeptId, parentId, topLevel, scope, page, size);
         return Result.ok(Map.of(
                 "list", p.getRecords(),
                 "total", p.getTotal(),

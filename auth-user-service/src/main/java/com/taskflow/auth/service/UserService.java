@@ -35,13 +35,16 @@ public class UserService {
     private final DepartmentMapper departmentMapper;
     private final RoleMapper roleMapper;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final UserSnapshotService snapshotService;
 
     public UserService(AppUserMapper userMapper, DepartmentMapper departmentMapper,
-                       RoleMapper roleMapper, BCryptPasswordEncoder passwordEncoder) {
+                       RoleMapper roleMapper, BCryptPasswordEncoder passwordEncoder,
+                       UserSnapshotService snapshotService) {
         this.userMapper = userMapper;
         this.departmentMapper = departmentMapper;
         this.roleMapper = roleMapper;
         this.passwordEncoder = passwordEncoder;
+        this.snapshotService = snapshotService;
     }
 
     /**
@@ -121,6 +124,7 @@ public class UserService {
         user.setMustChangePassword(true);
         userMapper.insert(user);
         log.info("新增用户: account={}, userId={}, roleId={}", account, user.getId(), roleId);
+        snapshotService.refresh();
         return Map.of("id", user.getId(), "initialPassword", initialPassword);
     }
 
@@ -135,6 +139,7 @@ public class UserService {
         user.setDepartmentId(departmentId);
         user.setEmail(email);
         userMapper.updateById(user);
+        snapshotService.refresh();
     }
 
     /**
@@ -144,6 +149,7 @@ public class UserService {
         AppUser user = mustExist(id);
         user.setStatus(status);
         userMapper.updateById(user);
+        snapshotService.refresh();
         log.info("用户状态变更: userId={}, account={}, status={}", id, user.getAccount(), status);
     }
 
@@ -226,6 +232,7 @@ public class UserService {
         } catch (org.springframework.dao.DuplicateKeyException e) {
             throw new BizException(ErrorCode.PARAM_INVALID, "部门名称已存在");
         }
+        snapshotService.refresh();
         return Map.of("id", d.getId(), "name", d.getName());
     }
 
@@ -239,6 +246,7 @@ public class UserService {
         }
         d.setName(name);
         departmentMapper.updateById(d);
+        snapshotService.refresh();
     }
 
     /**
@@ -262,6 +270,34 @@ public class UserService {
         return Map.of(
                 "roles", roleMapper.selectList(null),
                 "permissionKeys", PermissionService.PERMISSION_CATALOG);
+    }
+
+    /**
+     * 用户简明列表（登录即可，供前端下拉与 task-service Feign 解析姓名）。
+     * 支持姓名/账号关键字与部门筛选；只返回非敏感字段。
+     *
+     * @param keyword      姓名或账号关键字，可空
+     * @param departmentId 部门筛选，可空
+     * @return [{id, name, account, departmentId, departmentName}]
+     */
+    public List<Map<String, Object>> lookup(String keyword, Long departmentId) {
+        LambdaQueryWrapper<AppUser> qw = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            qw.and(w -> w.like(AppUser::getName, keyword).or().like(AppUser::getAccount, keyword));
+        }
+        qw.eq(departmentId != null, AppUser::getDepartmentId, departmentId)
+                .orderByAsc(AppUser::getId);
+        Map<Long, String> deptNames = departmentMapper.selectList(null).stream()
+                .collect(Collectors.toMap(Department::getId, Department::getName));
+        return userMapper.selectList(qw).stream()
+                .map(u -> Map.<String, Object>of(
+                        "id", u.getId(),
+                        "name", u.getName(),
+                        "account", u.getAccount(),
+                        "departmentId", u.getDepartmentId(),
+                        "departmentName", deptNames.getOrDefault(u.getDepartmentId(), ""),
+                        "status", u.getStatus()))
+                .collect(Collectors.toList());
     }
 
     /** 取用户或抛 1002 */

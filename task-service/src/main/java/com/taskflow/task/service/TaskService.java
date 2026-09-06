@@ -214,13 +214,79 @@ public class TaskService {
                 .plusDays(3).atTime(18, 0).atOffset(ZoneOffset.ofHours(8));
     }
 
+    // ==================== 用户快照（姓名/部门解析） ====================
+
+    /**
+     * 读 Redis 用户快照（auth-user-service 在启动与用户/部门变更时全量刷新，
+     * 键 auth:user:snapshot，架构 3.2 铁律 2）。
+     *
+     * @return {用户id: {name, account, departmentName, status}}；缓存缺失时返回空表
+     */
+    @SuppressWarnings("unchecked")
+    private Map<Long, Map<String, String>> userSnapshot() {
+        String json = redis.get("auth:user:snapshot");
+        if (json == null || json.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Map<String, String>> raw = objectMapper.readValue(json, Map.class);
+            Map<Long, Map<String, String>> result = new HashMap<>();
+            raw.forEach((k, v) -> result.put(Long.valueOf(k), v));
+            return result;
+        } catch (JsonProcessingException e) {
+            log.warn("用户快照解析失败", e);
+            return Map.of();
+        }
+    }
+
+    /** 从快照取用户姓名（取不到回退账号/空） */
+    private static String nameOf(Map<Long, Map<String, String>> snapshot, Long userId) {
+        Map<String, String> u = snapshot.get(userId);
+        return u == null ? "" : u.getOrDefault("name", "");
+    }
+
+    /** 从快照取用户部门名 */
+    private static String deptOf(Map<Long, Map<String, String>> snapshot, Long userId) {
+        Map<String, String> u = snapshot.get(userId);
+        return u == null ? "" : u.getOrDefault("departmentName", "");
+    }
+
+    /** 任务实体 → 列表/详情响应项（含创建人、处理人姓名与处理人部门） */
+    private Map<String, Object> toItem(Task t, Map<Long, Map<String, String>> snapshot) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("id", t.getId());
+        item.put("taskNo", t.getTaskNo());
+        item.put("title", t.getTitle());
+        item.put("taskType", t.getTaskType());
+        item.put("priority", t.getPriority());
+        item.put("status", t.getStatus());
+        item.put("progress", t.getProgress());
+        item.put("creatorId", t.getCreatorId());
+        item.put("creatorName", nameOf(snapshot, t.getCreatorId()));
+        item.put("assigneeId", t.getAssigneeId());
+        item.put("assigneeName", nameOf(snapshot, t.getAssigneeId()));
+        item.put("assigneeDepartmentName", deptOf(snapshot, t.getAssigneeId()));
+        item.put("dueAt", t.getDueAt() == null ? null : t.getDueAt().toString());
+        item.put("source", t.getSource());
+        item.put("parentId", t.getParentId());
+        item.put("createdAt", t.getCreatedAt() == null ? null : t.getCreatedAt().toString());
+        item.put("updatedAt", t.getUpdatedAt() == null ? null : t.getUpdatedAt().toString());
+        return item;
+    }
+
     // ==================== 查询 ====================
 
     /**
      * 任务列表：可见性过滤 + 筛选 + 分页（接口 #19）。
+     *
+     * @param assigneeDeptId 处理人部门筛选（经 Feign 反查该部门用户 id 集合）
+     * @param parentId       父任务 id（查子任务，树形展开用）
+     * @param topLevel       true 时只查顶层任务（树形根节点）
      */
-    public Page<Task> page(String keyword, String status, String priority, String taskType,
-                           Long creatorId, Long assigneeId, String scope, int page, int size) {
+    public Page<Map<String, Object>> page(String keyword, String status, String priority, String taskType,
+                                          Long creatorId, Long assigneeId, Long assigneeDeptId,
+                                          Long parentId, boolean topLevel,
+                                          String scope, int page, int size) {
         LambdaQueryWrapper<Task> qw = new LambdaQueryWrapper<>();
 
         // ① 可见性过滤（PRD 3.4，始终先生效）
@@ -243,7 +309,13 @@ public class TaskService {
             }
         }
 
-        // ② 快捷范围（与其他条件 AND 叠加，PRD 4.2.1）
+        // ② 树形参数：子任务展开 / 仅顶层
+        qw.eq(parentId != null, Task::getParentId, parentId);
+        if (topLevel) {
+            qw.isNull(Task::getParentId);
+        }
+
+        // ③ 快捷范围（与其他条件 AND 叠加，PRD 4.2.1）
         Long me = AuthContext.getUserId();
         if ("mine".equals(scope)) {
             qw.eq(Task::getCreatorId, me);
@@ -254,38 +326,92 @@ public class TaskService {
                     .lt(Task::getDueAt, OffsetDateTime.now());
         }
 
-        // ③ 筛选条件
+        // ④ 处理人部门筛选（Feign 反查部门用户 id 集合；空集合 = 结果为空）
+        if (assigneeDeptId != null) {
+            List<Long> deptUserIds = lookupUserIds(null, assigneeDeptId);
+            if (deptUserIds.isEmpty()) {
+                qw.eq(Task::getId, -1L);
+            } else {
+                qw.in(Task::getAssigneeId, deptUserIds);
+            }
+        }
+
+        // ⑤ 筛选条件
         qw.eq(StringUtils.hasText(status), Task::getStatus, status)
                 .eq(StringUtils.hasText(priority), Task::getPriority, priority)
                 .eq(StringUtils.hasText(taskType), Task::getTaskType, taskType)
                 .eq(creatorId != null, Task::getCreatorId, creatorId)
                 .eq(assigneeId != null, Task::getAssigneeId, assigneeId);
         if (StringUtils.hasText(keyword)) {
-            // 关键字匹配编号/标题/描述（创建人、处理人姓名的匹配在 M2 用编号与标题先行，
-            // 姓名匹配依赖用户快照缓存，M2 后续补充）
-            qw.and(w -> w.like(Task::getTaskNo, keyword)
-                    .or().like(Task::getTitle, keyword)
-                    .or().like(Task::getDescription, keyword));
+            // 关键字匹配编号/标题/描述 + 创建人/处理人姓名（PRD 4.2.1：姓名经 lookup 反查 id）
+            List<Long> nameMatchedIds = lookupUserIds(keyword, null);
+            qw.and(w -> {
+                w.like(Task::getTaskNo, keyword)
+                        .or().like(Task::getTitle, keyword)
+                        .or().like(Task::getDescription, keyword);
+                if (!nameMatchedIds.isEmpty()) {
+                    w.or().in(Task::getCreatorId, nameMatchedIds)
+                            .or().in(Task::getAssigneeId, nameMatchedIds);
+                }
+            });
         }
         qw.orderByDesc(Task::getCreatedAt);
 
-        return taskMapper.selectPage(new Page<>(page, size), qw);
+        Page<Task> raw = taskMapper.selectPage(new Page<>(page, size), qw);
+        Map<Long, Map<String, String>> snapshot = userSnapshot();
+
+        Page<Map<String, Object>> result = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
+        result.setRecords(raw.getRecords().stream()
+                .map(t -> toItem(t, snapshot)).collect(java.util.stream.Collectors.toList()));
+        return result;
+    }
+
+    /** Feign 查用户 id 集合（姓名关键字或部门筛选） */
+    @SuppressWarnings("unchecked")
+    private List<Long> lookupUserIds(String keyword, Long departmentId) {
+        try {
+            Map<String, Object> envelope = userClient.lookup(keyword, departmentId);
+            List<Map<String, Object>> users = (List<Map<String, Object>>) envelope.get("data");
+            if (users == null) {
+                return List.of();
+            }
+            return users.stream().map(u -> Long.valueOf(String.valueOf(u.get("id"))))
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            // 用户服务不可用：姓名/部门筛选降级为不生效（宁缺毋滥地返回空集合会让结果误空，选择跳过该条件）
+            log.warn("用户 lookup 调用失败，降级跳过该筛选条件: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /**
-     * 任务详情（接口 #21）：可见性校验 + 时间线倒序。
+     * 任务详情（接口 #21）：可见性校验 + 时间线倒序 + 姓名解析。
      */
     public Map<String, Object> detail(Long id) {
         Task task = mustVisible(id);
+        Map<Long, Map<String, String>> snapshot = userSnapshot();
         List<TaskTimeline> timeline = timelineMapper.selectList(
                 new LambdaQueryWrapper<TaskTimeline>()
                         .eq(TaskTimeline::getTaskId, id)
                         .orderByDesc(TaskTimeline::getCreatedAt));
-        List<Task> subtasks = taskMapper.selectList(
-                new LambdaQueryWrapper<Task>()
-                        .eq(Task::getParentId, id)
-                        .orderByAsc(Task::getCreatedAt));
-        return Map.of("task", task, "timeline", timeline, "subtasks", subtasks);
+        List<Map<String, Object>> timelineItems = timeline.stream().map(tl -> {
+            Map<String, Object> item = new HashMap<String, Object>();
+            item.put("id", tl.getId());
+            item.put("action", tl.getAction());
+            item.put("note", tl.getNote());
+            item.put("operatorId", tl.getOperatorId());
+            item.put("operatorName", nameOf(snapshot, tl.getOperatorId()));
+            item.put("createdAt", tl.getCreatedAt() == null ? null : tl.getCreatedAt().toString());
+            return item;
+        }).collect(java.util.stream.Collectors.toList());
+        List<Map<String, Object>> subtaskItems = taskMapper.selectList(
+                        new LambdaQueryWrapper<Task>()
+                                .eq(Task::getParentId, id)
+                                .orderByAsc(Task::getCreatedAt))
+                .stream().map(st -> toItem(st, snapshot))
+                .collect(java.util.stream.Collectors.toList());
+        return Map.of("task", toItem(task, snapshot),
+                "timeline", timelineItems, "subtasks", subtaskItems);
     }
 
     // ==================== 编辑与删除 ====================
