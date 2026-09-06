@@ -66,6 +66,69 @@ const scopeTabs: { value: TaskScope; label: string }[] = [
   { value: 'overdue', label: '已逾期' },
 ]
 
+// ---------- 列设置（勾选持久化 localStorage；编号 / 标题 / 操作为必选列） ----------
+interface ColumnConfig {
+  key: string
+  label: string
+  width?: number
+  minWidth?: number
+  fixed?: 'right'
+  /** 单元格溢出省略 + tooltip */
+  tooltip?: boolean
+  defaultVisible: boolean
+  /** 必选列：不可取消勾选 */
+  required?: boolean
+}
+
+const COLUMN_CONFIGS: ColumnConfig[] = [
+  { key: 'taskNo', label: '编号', width: 120, defaultVisible: true, required: true },
+  { key: 'title', label: '标题', minWidth: 240, tooltip: true, defaultVisible: true, required: true },
+  { key: 'taskType', label: '类型', width: 110, defaultVisible: true },
+  { key: 'priority', label: '优先级', width: 80, defaultVisible: true },
+  { key: 'status', label: '状态', width: 100, defaultVisible: true },
+  { key: 'creatorName', label: '创建人', width: 90, tooltip: true, defaultVisible: true },
+  { key: 'assigneeName', label: '处理人', width: 90, tooltip: true, defaultVisible: true },
+  { key: 'assigneeDeptName', label: '处理人部门', width: 120, tooltip: true, defaultVisible: true },
+  { key: 'dueAt', label: '到期时间', width: 170, defaultVisible: true },
+  { key: 'progress', label: '进度', width: 120, defaultVisible: true },
+  { key: 'updatedAt', label: '更新时间', width: 150, defaultVisible: true },
+  { key: 'ops', label: '操作', width: 130, fixed: 'right', defaultVisible: true, required: true },
+]
+
+const COLUMN_STORAGE_KEY = 'taskflow.tasklist.columns'
+
+/** 读取持久化的可见列；必选列始终并入，未知 key 丢弃（兼容列配置演进） */
+function loadVisibleColumnKeys(): string[] {
+  const defaults = COLUMN_CONFIGS.filter((c) => c.defaultVisible).map((c) => c.key)
+  const required = COLUMN_CONFIGS.filter((c) => c.required).map((c) => c.key)
+  try {
+    const raw = localStorage.getItem(COLUMN_STORAGE_KEY)
+    if (!raw) return defaults
+    const saved = JSON.parse(raw) as unknown
+    if (!Array.isArray(saved)) return defaults
+    const valid = (saved as unknown[]).filter(
+      (k): k is string => typeof k === 'string' && COLUMN_CONFIGS.some((c) => c.key === k),
+    )
+    return [...new Set([...required, ...valid])]
+  } catch {
+    return defaults
+  }
+}
+
+const visibleColumnKeys = ref<string[]>(loadVisibleColumnKeys())
+
+const visibleColumns = computed(() =>
+  COLUMN_CONFIGS.filter((c) => visibleColumnKeys.value.includes(c.key)),
+)
+
+watch(
+  visibleColumnKeys,
+  (keys) => {
+    localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(keys))
+  },
+  { deep: true },
+)
+
 // ---------- 列表 ----------
 const loading = shallowRef(false)
 const taskList = ref<TaskItem[]>([])
@@ -98,8 +161,8 @@ async function loadTasks() {
       page: page.value,
       size: size.value,
     })
-    // 顶层行先标记 hasChildren，展开时懒加载；无子任务返回空数组后箭头自动消失
-    taskList.value = data.list.map((t) => ({ ...t, hasChildren: true }))
+    // hasChildren 由后端返回：真实有子任务的顶层行才显示展开箭头
+    taskList.value = data.list
     total.value = data.total
     tableEpoch.value++
   } catch (error) {
@@ -265,6 +328,15 @@ const canTransfer = computed(
   () => userStore.hasPerm('transferOwn') || userStore.hasPerm('transferAssigned'),
 )
 
+/** 「更多」下拉整体显隐：四个动作权限一个都没有时不渲染 */
+const hasRowMoreActions = computed(
+  () =>
+    userStore.hasPerm('prioOwn') ||
+    userStore.hasPerm('dueOwn') ||
+    canTransfer.value ||
+    userStore.hasPerm('create'),
+)
+
 const actionDialogsRef = useTemplateRef<InstanceType<typeof TaskActionDialogs>>('actionDialogsRef')
 
 const openPriority = (row: TaskItem) => actionDialogsRef.value?.openPriority(row)
@@ -401,6 +473,34 @@ function handleChanged() {
         <el-button link type="primary" class="filter-reset" @click="resetFilters">
           重置筛选
         </el-button>
+        <!-- 列设置：勾选面板，必选列禁用，勾选状态持久化 localStorage -->
+        <el-popover placement="bottom-end" :width="200" trigger="click">
+          <template #reference>
+            <el-button class="columns-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+              </svg>
+              列设置
+            </el-button>
+          </template>
+          <div class="columns-panel">
+            <el-checkbox-group v-model="visibleColumnKeys">
+              <el-checkbox
+                v-for="c in COLUMN_CONFIGS"
+                :key="c.key"
+                :value="c.key"
+                :disabled="c.required"
+              >
+                {{ c.label }}
+              </el-checkbox>
+            </el-checkbox-group>
+          </div>
+        </el-popover>
       </div>
     </div>
 
@@ -416,58 +516,47 @@ function handleChanged() {
         :load="loadChildren"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
       >
-        <el-table-column label="编号" width="110">
+        <el-table-column
+          v-for="col in visibleColumns"
+          :key="col.key"
+          :label="col.label"
+          :width="col.width"
+          :min-width="col.minWidth"
+          :fixed="col.fixed"
+          :show-overflow-tooltip="col.tooltip"
+        >
           <template #default="{ row }">
-            <span class="tf-num col-no">{{ row.taskNo }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="标题" min-width="240" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span v-if="row.parentTaskNo" class="tf-num parent-no">[{{ row.parentTaskNo }}] </span
-            ><span>{{ row.title }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" width="110">
-          <template #default="{ row }">
-            <span class="type-tag">{{ row.taskType }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="优先级" width="80">
-          <template #default="{ row }">
-            <span :style="priorityStyleOf(row.priority)">{{ row.priority }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <span :style="{ color: taskStatusMeta(row.status).textColor }">
+            <span v-if="col.key === 'taskNo'" class="tf-num col-no">{{ row.taskNo }}</span>
+            <span v-else-if="col.key === 'title'">
+              <span v-if="row.parentTaskNo" class="tf-num parent-no">[{{ row.parentTaskNo }}] </span
+              ><span>{{ row.title }}</span>
+            </span>
+            <span v-else-if="col.key === 'taskType'" class="type-tag">{{ row.taskType }}</span>
+            <span v-else-if="col.key === 'priority'" :style="priorityStyleOf(row.priority)">{{
+              row.priority
+            }}</span>
+            <span
+              v-else-if="col.key === 'status'"
+              :style="{ color: taskStatusMeta(row.status).textColor }"
+            >
               <span
                 class="tf-dot"
                 :style="{ backgroundColor: taskStatusMeta(row.status).color }"
               ></span
               >{{ taskStatusMeta(row.status).name }}
             </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建人" width="90" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.creatorName || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="处理人" width="90" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.assigneeName || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="处理人部门" width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.assigneeDepartmentName || '—' }}</template>
-        </el-table-column>
-        <el-table-column label="到期时间" width="170">
-          <template #default="{ row }">
-            <span class="tf-num due" :class="{ overdue: isTaskOverdue(row) }">{{
-              formatDateTime(row.dueAt)
-            }}</span>
-            <span v-if="isTaskOverdue(row)" class="overdue-tag">已逾期</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="进度" width="120">
-          <template #default="{ row }">
-            <div class="progress-cell">
+            <template v-else-if="col.key === 'creatorName'">{{ row.creatorName || '—' }}</template>
+            <template v-else-if="col.key === 'assigneeName'">{{ row.assigneeName || '—' }}</template>
+            <template v-else-if="col.key === 'assigneeDeptName'">{{
+              row.assigneeDepartmentName || '—'
+            }}</template>
+            <template v-else-if="col.key === 'dueAt'">
+              <span class="tf-num due" :class="{ overdue: isTaskOverdue(row) }">{{
+                formatDateTime(row.dueAt)
+              }}</span>
+              <span v-if="isTaskOverdue(row)" class="overdue-tag">已逾期</span>
+            </template>
+            <div v-else-if="col.key === 'progress'" class="progress-cell">
               <div class="progress-bar">
                 <div
                   class="fill"
@@ -477,55 +566,67 @@ function handleChanged() {
               </div>
               <span class="progress-num tf-num">{{ row.progress }}%</span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="150">
-          <template #default="{ row }">
-            <span class="tf-num upd-time">{{ formatDateTime(row.updatedAt) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
-          <template #default="{ row }">
-            <div class="row-ops">
-              <el-button
-                v-if="!row.parentId && userStore.hasPerm('create')"
-                link
-                type="primary"
-                :disabled="opsLocked(row)"
-                @click="openSubtaskCreate(row)"
-                >添加子任务</el-button
-              >
-              <el-button
-                v-if="userStore.hasPerm('prioOwn')"
-                link
-                type="primary"
-                :disabled="opsLocked(row)"
-                @click="openPriority(row)"
-                >优先级</el-button
-              >
-              <el-button
-                v-if="userStore.hasPerm('dueOwn')"
-                link
-                type="primary"
-                :disabled="opsLocked(row)"
-                @click="openDue(row)"
-                >到期</el-button
-              >
-              <el-button
-                v-if="canTransfer"
-                link
-                type="primary"
-                :disabled="opsLocked(row)"
-                @click="openTransfer(row)"
-                >转派</el-button
-              >
+            <span v-else-if="col.key === 'updatedAt'" class="tf-num upd-time">{{
+              formatDateTime(row.updatedAt)
+            }}</span>
+            <!-- 操作列：详情 + 更多下拉（按权限显隐，已完成/已归档锁定） -->
+            <div v-else-if="col.key === 'ops'" class="row-ops">
               <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+              <el-dropdown v-if="hasRowMoreActions" trigger="click">
+                <el-button link type="primary" class="more-btn">
+                  更多
+                  <svg
+                    class="caret-icon"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m6 9 6 6 6-6"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      v-if="userStore.hasPerm('prioOwn')"
+                      :disabled="opsLocked(row)"
+                      @click="openPriority(row)"
+                      >调整优先级</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="userStore.hasPerm('dueOwn')"
+                      :disabled="opsLocked(row)"
+                      @click="openDue(row)"
+                      >调整到期时间</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="canTransfer"
+                      :disabled="opsLocked(row)"
+                      @click="openTransfer(row)"
+                      >转派</el-dropdown-item
+                    >
+                    <el-dropdown-item
+                      v-if="!row.parentId && userStore.hasPerm('create')"
+                      :disabled="opsLocked(row)"
+                      @click="openSubtaskCreate(row)"
+                      >添加子任务</el-dropdown-item
+                    >
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </div>
           </template>
         </el-table-column>
         <template #empty>
           <div class="empty-tip">
-            还没有符合条件的任务，调整筛选条件，或点击右上角「新建任务」创建第一个。
+            暂无任务，点击右上角「＋ 新建任务」创建第一个；或调整筛选条件重新查询。
           </div>
         </template>
       </el-table>
@@ -687,6 +788,21 @@ function handleChanged() {
   margin-left: 4px;
 }
 
+/* 列设置按钮：靠筛选行右端 */
+.columns-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.columns-panel :deep(.el-checkbox-group) {
+  display: flex;
+  flex-direction: column;
+}
+.columns-panel :deep(.el-checkbox) {
+  height: 30px;
+}
+
 /* 范围分段控件 */
 .segmented {
   display: inline-flex;
@@ -804,6 +920,17 @@ function handleChanged() {
 }
 .row-ops .el-button + .el-button {
   margin-left: 8px;
+}
+.row-ops .el-dropdown {
+  margin-left: 8px;
+}
+.more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.more-btn .caret-icon {
+  flex: none;
 }
 
 /* 分页右下 */
