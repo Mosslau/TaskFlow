@@ -569,11 +569,11 @@ function handleChanged() {
             <span v-else-if="col.key === 'updatedAt'" class="tf-num upd-time">{{
               formatDateTime(row.updatedAt)
             }}</span>
-            <!-- 操作列：详情 + 更多下拉（按权限显隐，已完成/已归档锁定） -->
+            <!-- 操作列：详情 + 更多下拉（纯文字链，不用按钮，保证字号与基线对齐） -->
             <div v-else-if="col.key === 'ops'" class="row-ops">
-              <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+              <span class="op-link" @click="openDetail(row)">详情</span>
               <el-dropdown v-if="hasRowMoreActions" trigger="click">
-                <el-button link type="primary" class="more-btn">
+                <span class="op-link">
                   更多
                   <svg
                     class="caret-icon"
@@ -591,7 +591,7 @@ function handleChanged() {
                       stroke-linejoin="round"
                     />
                   </svg>
-                </el-button>
+                </span>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
@@ -914,22 +914,28 @@ function handleChanged() {
   opacity: 0;
   transition: opacity 120ms ease-out;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 :deep(.el-table__row:hover) .row-ops {
   opacity: 1;
 }
-.row-ops .el-button + .el-button {
-  margin-left: 8px;
-}
-.row-ops .el-dropdown {
-  margin-left: 8px;
-}
-.more-btn {
+/* 操作文字链：统一字号与基线（不用 el-button，避免 link 按钮与下拉按钮默认样式错位） */
+.op-link {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  font-size: 13px;
+  line-height: 22px;
+  color: #0E7C86;
+  cursor: pointer;
+  user-select: none;
 }
-.more-btn .caret-icon {
+.op-link:hover {
+  color: #0A5F67;
+}
+.op-link .caret-icon {
   flex: none;
 }
 
