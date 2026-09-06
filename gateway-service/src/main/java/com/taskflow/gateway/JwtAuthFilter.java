@@ -5,6 +5,8 @@ import com.taskflow.common.ErrorCode;
 import com.taskflow.common.JwtUtils;
 import com.taskflow.common.Result;
 import io.jsonwebtoken.Claims;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -40,6 +42,8 @@ import java.util.Set;
 // @Component：声明为 Spring 组件；实现 GlobalFilter 即对全部路由生效，无需注册
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
 
     /** 免鉴权白名单 */
     private static final Set<String> WHITELIST = Set.of(
@@ -109,6 +113,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
      * 拒绝响应：统一信封 + 对应 HTTP 状态码。
      */
     private Mono<Void> reject(ServerWebExchange exchange, ErrorCode errorCode) {
+        log.warn("请求被网关拦截: path={}, code={}, message={}",
+                exchange.getRequest().getPath().value(), errorCode.getCode(), errorCode.getMessage());
         exchange.getResponse().setStatusCode(HttpStatus.valueOf(errorCode.getHttpStatus()));
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
         try {

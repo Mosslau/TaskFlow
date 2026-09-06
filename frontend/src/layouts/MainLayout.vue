@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '../stores/user'
-import { logoutApi } from '../api/auth'
+import { changePasswordApi, logoutApi } from '../api/auth'
 import { roleName } from '../utils/format'
+import { resolveApiError } from '../api/auth'
 
 /**
  * 全局布局框架（UI 设计规范 4.2 页面骨架）：
@@ -37,6 +39,15 @@ const userName = computed(() => userStore.userInfo?.name ?? '')
 const userRoleName = computed(() => roleName(userStore.userInfo?.roleKey))
 const avatarChar = computed(() => userName.value.slice(0, 1) || '?')
 
+/** 用户下拉菜单命令分发 */
+function handleUserCommand(command: string) {
+  if (command === 'logout') {
+    handleLogout()
+  } else if (command === 'changePassword') {
+    openChangePassword()
+  }
+}
+
 async function handleLogout() {
   try {
     await logoutApi()
@@ -45,6 +56,40 @@ async function handleLogout() {
   }
   userStore.logout()
   router.push('/login')
+}
+
+// ---------- 修改密码（所有登录用户含 admin，接口 #4） ----------
+const pwdDialogVisible = ref(false)
+const pwdSubmitting = ref(false)
+const pwdForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+function openChangePassword() {
+  pwdForm.oldPassword = ''
+  pwdForm.newPassword = ''
+  pwdForm.confirmPassword = ''
+  pwdDialogVisible.value = true
+}
+
+async function submitChangePassword() {
+  if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+    ElMessage.error('两次输入的新密码不一致')
+    return
+  }
+  pwdSubmitting.value = true
+  try {
+    await changePasswordApi({
+      oldPassword: pwdForm.oldPassword,
+      newPassword: pwdForm.newPassword,
+    })
+    pwdDialogVisible.value = false
+    ElMessage.success('密码已修改，请重新登录')
+    userStore.logout()
+    router.push('/login')
+  } catch (error) {
+    ElMessage.error(resolveApiError(error).message)
+  } finally {
+    pwdSubmitting.value = false
+  }
 }
 </script>
 
@@ -109,7 +154,7 @@ async function handleLogout() {
               </svg>
             </button>
           </el-tooltip>
-          <el-dropdown trigger="click" @command="handleLogout">
+          <el-dropdown trigger="click" @command="handleUserCommand">
             <span class="user-dropdown">
               {{ userName }}
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -119,6 +164,7 @@ async function handleLogout() {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
                 <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -130,6 +176,30 @@ async function handleLogout() {
         <router-view />
       </main>
     </div>
+
+    <!-- 修改密码对话框 -->
+    <el-dialog v-model="pwdDialogVisible" title="修改密码" width="420px" :close-on-click-modal="false">
+      <el-form label-position="top" @submit.prevent="submitChangePassword">
+        <el-form-item label="旧密码">
+          <el-input v-model="pwdForm.oldPassword" type="password" show-password
+                    placeholder="请输入当前密码" />
+        </el-form-item>
+        <el-form-item label="新密码（8-64 位，须含字母与数字）">
+          <el-input v-model="pwdForm.newPassword" type="password" show-password
+                    placeholder="请输入新密码" />
+        </el-form-item>
+        <el-form-item label="确认新密码">
+          <el-input v-model="pwdForm.confirmPassword" type="password" show-password
+                    placeholder="请再次输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pwdDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="pwdSubmitting" @click="submitChangePassword">
+          确认修改
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
