@@ -52,3 +52,60 @@ export function prettyJson(text?: string | null): string {
     return text
   }
 }
+
+/** 权限点 key → 中文名（PRD 3.2 的 14 个权限点） */
+const PERM_NAMES: Record<string, string> = {
+  viewAll: '查看全部任务',
+  create: '创建任务',
+  editOwn: '编辑自己的任务',
+  deleteOwn: '删除自己的任务',
+  transferOwn: '转派自己的任务',
+  prioOwn: '调整自己任务优先级',
+  dueOwn: '调整自己任务到期时间',
+  viewAssigned: '查看指派给我的',
+  updateAssigned: '更新指派给我的进度',
+  transferAssigned: '转派指派给我的',
+  viewStats: '查看统计总览',
+  exportData: '导出数据',
+  manageUser: '用户与角色管理',
+  setPerm: '配置权限矩阵',
+}
+
+export function permName(key?: string | null): string {
+  if (!key) return '—'
+  return PERM_NAMES[key] ?? key
+}
+
+/** 审计日志操作类型 → 中文（后端存英文动作键，展示层映射） */
+const AUDIT_ACTION_NAMES: Record<string, string> = {
+  'permission.matrix.update': '权限矩阵变更',
+}
+
+export function auditActionName(action?: string | null): string {
+  if (!action) return '—'
+  return AUDIT_ACTION_NAMES[action] ?? action
+}
+
+/**
+ * 审计变更内容 → 可读中文文案。
+ * 矩阵变更结构 { "viewAll": { "admin": [false, true] } }
+ *   → "查看全部任务：系统管理员 关闭 → 开启"
+ * 解析失败或非矩阵结构时回退 JSON 美化文本。
+ */
+export function auditDetailText(changeDetail?: string | null): string {
+  if (!changeDetail) return '—'
+  try {
+    const detail = JSON.parse(changeDetail) as Record<string, Record<string, [boolean, boolean]>>
+    const lines: string[] = []
+    for (const [permKey, roleChanges] of Object.entries(detail)) {
+      for (const [roleKey, [before, after]] of Object.entries(roleChanges)) {
+        lines.push(
+          `${permName(permKey)}：${roleName(roleKey)} ${before ? '开启' : '关闭'} → ${after ? '开启' : '关闭'}`,
+        )
+      }
+    }
+    return lines.length > 0 ? lines.join('；') : prettyJson(changeDetail)
+  } catch {
+    return changeDetail
+  }
+}

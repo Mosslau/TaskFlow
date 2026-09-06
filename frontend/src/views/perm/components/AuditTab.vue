@@ -8,11 +8,11 @@ import {
   type AuditLogItem,
   type UserItem,
 } from '../../../api/auth'
-import { formatDateTime, prettyJson } from '../../../utils/format'
+import { auditActionName, auditDetailText, formatDateTime } from '../../../utils/format'
 
 /**
  * 审计日志标签页（仅 admin）：时间倒序，可按操作人筛选（下拉来自用户列表）。
- * 变更内容 changeDetail 按 JSON 美化展示。
+ * 操作类型与变更内容做中文映射展示（后端存英文键，展示层翻译）。
  */
 const loading = shallowRef(false)
 const logs = ref<AuditLogItem[]>([])
@@ -77,10 +77,12 @@ onMounted(async () => {
         </template>
       </el-table-column>
       <el-table-column prop="operatorName" label="操作人" width="120" />
-      <el-table-column prop="action" label="操作类型" width="160" />
+      <el-table-column label="操作类型" width="160">
+        <template #default="{ row }">{{ auditActionName(row.action) }}</template>
+      </el-table-column>
       <el-table-column label="变更内容" min-width="320">
         <template #default="{ row }">
-          <pre class="detail-pre tf-num">{{ prettyJson(row.changeDetail) }}</pre>
+          <span class="detail-text">{{ auditDetailText(row.changeDetail) }}</span>
         </template>
       </el-table-column>
       <template #empty>
@@ -111,13 +113,9 @@ onMounted(async () => {
 .operator-select {
   width: 200px;
 }
-.detail-pre {
-  margin: 0;
-  font-family: inherit;
-  font-size: 12px;
+.detail-text {
+  font-size: 13px;
   color: #5E6D82;
-  white-space: pre-wrap;
-  word-break: break-all;
   line-height: 1.5;
 }
 .pager {
