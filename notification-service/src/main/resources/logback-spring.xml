@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TaskFlow 服务统一日志配置（各服务共用同一份，靠 spring.application.name 区分日志文件）。
+  - 控制台：带颜色的单行格式（开发友好）
+  - 文件：logs/{服务名}.log，按天滚动保留 30 天（内网排障用）
+-->
+<configuration>
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="taskflow"/>
+
+    <!-- 控制台输出 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%15.15thread] %cyan(%-40.40logger{39}) : %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 文件输出：按天滚动，保留 30 天 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${appName}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/${appName}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %-40.40logger{39} : %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- 框架降噪 -->
+    <logger name="org.apache.ibatis" level="WARN"/>
+    <logger name="com.baomidou.mybatisplus" level="WARN"/>
+    <logger name="com.alibaba.nacos" level="WARN"/>
+</configuration>

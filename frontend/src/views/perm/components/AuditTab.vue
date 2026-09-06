@@ -70,7 +70,7 @@ onMounted(async () => {
       </el-select>
     </div>
 
-    <el-table v-loading="loading" :data="logs">
+    <el-table v-loading="loading" v-col-resizable :data="logs">
       <el-table-column label="时间" width="160">
         <template #default="{ row }">
           <span class="tf-num">{{ formatDateTime(row.createdAt) }}</span>

@@ -114,6 +114,12 @@
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
                 </plugin>
+                <!-- Surefire 3.x：支持 JUnit 5（Maven 3.8 自带的 2.12 只认 JUnit 4） -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.2.5</version>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>

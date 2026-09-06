@@ -270,10 +270,10 @@ async function handleResetPassword(row: UserItem) {
       </el-button>
     </div>
 
-    <el-table v-loading="loading" :data="userList">
-      <el-table-column prop="name" label="姓名" min-width="100" />
-      <el-table-column prop="account" label="账号" min-width="110" />
-      <el-table-column prop="departmentName" label="部门" min-width="110">
+    <el-table v-loading="loading" v-col-resizable :data="userList">
+      <el-table-column prop="name" label="姓名" width="110" show-overflow-tooltip />
+      <el-table-column prop="account" label="账号" width="130" show-overflow-tooltip />
+      <el-table-column prop="departmentName" label="部门" width="120" show-overflow-tooltip>
         <template #default="{ row }">{{ row.departmentName || '—' }}</template>
       </el-table-column>
       <el-table-column label="角色" min-width="110">

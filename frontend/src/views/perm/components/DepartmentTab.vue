@@ -115,8 +115,8 @@ async function handleDelete(row: DepartmentItem) {
       </el-button>
     </div>
 
-    <el-table v-loading="loading" :data="departments">
-      <el-table-column prop="name" label="名称" min-width="180" />
+    <el-table v-loading="loading" v-col-resizable :data="departments">
+      <el-table-column prop="name" label="名称" min-width="180" show-overflow-tooltip />
       <el-table-column label="人数" width="120">
         <template #default="{ row }">
           <span class="tf-num">{{ row.userCount }}</span>

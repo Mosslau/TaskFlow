@@ -10,6 +10,8 @@ import com.taskflow.auth.mapper.DepartmentMapper;
 import com.taskflow.auth.mapper.RoleMapper;
 import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final AppUserMapper userMapper;
     private final DepartmentMapper departmentMapper;
@@ -116,6 +120,7 @@ public class UserService {
         user.setStatus("active");
         user.setMustChangePassword(true);
         userMapper.insert(user);
+        log.info("新增用户: account={}, userId={}, roleId={}", account, user.getId(), roleId);
         return Map.of("id", user.getId(), "initialPassword", initialPassword);
     }
 
@@ -139,6 +144,7 @@ public class UserService {
         AppUser user = mustExist(id);
         user.setStatus(status);
         userMapper.updateById(user);
+        log.info("用户状态变更: userId={}, account={}, status={}", id, user.getAccount(), status);
     }
 
     /**
@@ -151,6 +157,7 @@ public class UserService {
         }
         user.setRoleId(roleId);
         userMapper.updateById(user);
+        log.info("角色指派: userId={}, account={}, roleId={}", id, user.getAccount(), roleId);
     }
 
     /**

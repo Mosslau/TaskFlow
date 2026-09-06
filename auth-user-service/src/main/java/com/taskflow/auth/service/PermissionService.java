@@ -8,6 +8,8 @@ import com.taskflow.auth.mapper.RolePermissionMapper;
 import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
 import com.taskflow.common.RedisUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -29,6 +31,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class PermissionService {
+
+    private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
 
     /** 缓存 10 分钟兜底过期（正常靠主动失效，TTL 防缓存永久残留） */
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
@@ -141,6 +145,8 @@ public class PermissionService {
         }
         cell.setEnabled(enabled);
         rolePermissionMapper.updateById(cell);
+        log.info("权限矩阵变更: operator={}, role={}, perm={}, {} -> {}",
+                operatorId, roleKey, permissionKey, oldValue, enabled);
 
         // 审计日志（PRD 4.5.4：操作人、时间、变更前后值）
         auditService.record(operatorId, "permission.matrix.update",

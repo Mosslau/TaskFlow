@@ -98,7 +98,7 @@ async function handleToggle(roleKey: string, permissionKey: string, enabled: boo
 
 <template>
   <div v-loading="loading" class="matrix-tab">
-    <el-table :data="rows" :span-method="spanMethod">
+    <el-table v-col-resizable :data="rows" :span-method="spanMethod">
       <el-table-column label="分组" width="120">
         <template #default="{ row }">
           <span class="group-tag">{{ permGroupName(row.group) }}</span>

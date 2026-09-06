@@ -9,6 +9,8 @@ import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
 import com.taskflow.common.JwtUtils;
 import com.taskflow.common.RedisUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,8 @@ import java.util.Set;
 // @Service：业务层组件，纳入 Spring 容器并可参与声明式事务
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     /** 连续失败上限（PRD 7.3.1） */
     private static final int MAX_FAIL = 5;
@@ -75,6 +79,7 @@ public class AuthService {
     public Map<String, Object> login(String account, String rawPassword) {
         // ① 锁定检查（优先级最高：锁定期间不校验密码，防探测）
         if (redis.hasKey("auth:lock:" + account)) {
+            log.warn("登录被拒（账号锁定中）: account={}", account);
             throw new BizException(ErrorCode.ACCOUNT_LOCKED);
         }
 
@@ -105,6 +110,7 @@ public class AuthService {
         String token = jwtUtils.generate(user.getId(), role.getRoleKey());
         String refreshToken = newToken();
         redis.set("auth:refresh:" + user.getId(), refreshToken, REFRESH_TTL);
+        log.info("登录成功: account={}, userId={}, role={}", account, user.getId(), role.getRoleKey());
 
         return Map.of(
                 "token", token,
@@ -129,6 +135,7 @@ public class AuthService {
         // 黑名单 TTL 覆盖令牌剩余有效期即可（2h），到期自动清理
         redis.set("auth:blacklist:" + token, "1", Duration.ofHours(2));
         redis.delete("auth:refresh:" + userId);
+        log.info("注销: userId={}", userId);
     }
 
     /**
@@ -173,6 +180,7 @@ public class AuthService {
             throw new BizException(ErrorCode.RESOURCE_NOT_FOUND, "用户不存在");
         }
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            log.warn("改密失败（旧密码错误）: userId={}", userId);
             throw new BizException(ErrorCode.BAD_CREDENTIALS, "旧密码错误");
         }
 
@@ -180,6 +188,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
         userMapper.updateById(user);
+        log.info("改密成功: userId={}", userId);
 
         // 旧令牌全部失效：当前 JWT 拉黑 + 刷新令牌删除（PRD 7.3.2）
         if (currentToken != null) {
@@ -218,6 +227,7 @@ public class AuthService {
         if (fails != null && fails >= MAX_FAIL) {
             redis.set("auth:lock:" + account, "1", LOCK_TTL);
             redis.delete(key);
+            log.warn("账号锁定（连续失败 {} 次）: account={}", MAX_FAIL, account);
             return 0;
         }
         return (int) (MAX_FAIL - (fails == null ? 1 : fails));
