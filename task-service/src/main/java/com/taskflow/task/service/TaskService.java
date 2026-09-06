@@ -360,9 +360,27 @@ public class TaskService {
         Page<Task> raw = taskMapper.selectPage(new Page<>(page, size), qw);
         Map<Long, Map<String, String>> snapshot = userSnapshot();
 
+        // 批量统计本页任务的子任务数（树形表格的展开箭头精确显示用）
+        List<Long> ids = raw.getRecords().stream().map(Task::getId).toList();
+        Map<Long, Long> childCounts = new HashMap<>();
+        if (!ids.isEmpty()) {
+            taskMapper.selectMaps(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Task>()
+                            .select("parent_id AS parentId", "count(*) AS cnt")
+                            .in("parent_id", ids)
+                            .groupBy("parent_id"))
+                    .forEach(row -> childCounts.put(
+                            Long.valueOf(String.valueOf(row.get("parentid"))),
+                            Long.valueOf(String.valueOf(row.get("cnt")))));
+        }
+
         Page<Map<String, Object>> result = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
+        Map<Long, Long> finalChildCounts = childCounts;
         result.setRecords(raw.getRecords().stream()
-                .map(t -> toItem(t, snapshot)).collect(java.util.stream.Collectors.toList()));
+                .map(t -> {
+                    Map<String, Object> item = toItem(t, snapshot);
+                    item.put("hasChildren", finalChildCounts.getOrDefault(t.getId(), 0L) > 0);
+                    return item;
+                }).collect(java.util.stream.Collectors.toList()));
         return result;
     }
 
