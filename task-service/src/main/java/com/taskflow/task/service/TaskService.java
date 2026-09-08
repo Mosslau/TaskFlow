@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
 import com.taskflow.common.RedisUtils;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -29,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 任务核心服务（PRD 4.1 + 接口文档第 4 章）。
@@ -62,7 +65,8 @@ public class TaskService {
     private final EventOutboxMapper outboxMapper;
     private final UserClient userClient;
     private final RedisUtils redis;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    // 注册 JavaTimeModule：事件信封的 occurredAt 是 Instant（M3 事件契约）
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     public TaskService(TaskMapper taskMapper, TaskTimelineMapper timelineMapper,
                        EventOutboxMapper outboxMapper, UserClient userClient, RedisUtils redis) {
@@ -753,12 +757,19 @@ public class TaskService {
         timelineMapper.insert(tl);
     }
 
-    /** 写本地消息表（与业务同事务；event_id 由 DB 默认 gen_random_uuid() 生成） */
+    /**
+     * 写本地消息表（与业务同事务）。
+     * 消息体为完整事件信封 TaskEvents.TaskEvent（eventId / eventType / payload / occurredAt）：
+     * eventId 由本服务生成，同时写入 event_id 列与信封——消费端凭它做幂等去重。
+     */
     private void writeOutbox(String eventType, Map<String, Object> payload) {
+        UUID eventId = UUID.randomUUID();
         EventOutbox outbox = new EventOutbox();
+        outbox.setEventId(eventId.toString());
         outbox.setEventType(eventType);
         try {
-            outbox.setPayload(objectMapper.writeValueAsString(payload));
+            outbox.setPayload(objectMapper.writeValueAsString(
+                    new TaskEvents.TaskEvent(eventId, eventType, payload, Instant.now())));
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("事件载荷序列化失败", e);
         }

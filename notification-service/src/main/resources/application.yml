@@ -35,6 +35,10 @@ spring:
           auth: ${SMTP_AUTH:false}
           starttls:
             enable: ${SMTP_STARTTLS:false}
+          # SMTP 超时（默认无限会卡死消费线程；M3 联调环境本机无 SMTP，快速失败进重试）
+          connectiontimeout: ${SMTP_TIMEOUT:5000}
+          timeout: ${SMTP_TIMEOUT:5000}
+          writetimeout: ${SMTP_TIMEOUT:5000}
 
 mybatis-plus:
   configuration:

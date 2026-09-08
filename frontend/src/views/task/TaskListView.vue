@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import {
   TASK_PRIORITIES,
@@ -353,6 +354,21 @@ function openDetail(row: TaskItem) {
   drawerTaskId.value = row.id
   drawerVisible.value = true
 }
+
+// 通知中心跳转（PRD 4.6.2）：/tasks?taskId=N → 自动打开对应任务详情抽屉；
+// 已在列表页时重复点击不同通知，抽屉内容随 query 切换
+const route = useRoute()
+watch(
+  () => route.query.taskId,
+  (val) => {
+    const id = Number(val)
+    if (Number.isInteger(id) && id > 0) {
+      drawerTaskId.value = id
+      drawerVisible.value = true
+    }
+  },
+  { immediate: true },
+)
 
 /** 抽屉内点击子任务：切换抽屉到该子任务详情 */
 function openSubtaskDetail(taskId: number) {

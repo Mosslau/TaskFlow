@@ -9,11 +9,12 @@ import com.taskflow.auth.mapper.AppUserMapper;
 import com.taskflow.auth.mapper.RoleMapper;
 import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
+import com.taskflow.common.HashUtils;
+import com.taskflow.common.RedisUtils;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,14 +28,20 @@ import java.util.stream.Collectors;
 @Service
 public class ApiKeyService {
 
+    /** 网关校验缓存键前缀（与 gateway-service ApiKeyAuthFilter 约定一致）：tf:apikey:{sha256(明文)} */
+    public static final String GATEWAY_CACHE_PREFIX = "tf:apikey:";
+
     private final ApiKeyMapper apiKeyMapper;
     private final AppUserMapper userMapper;
     private final RoleMapper roleMapper;
+    private final RedisUtils redis;
 
-    public ApiKeyService(ApiKeyMapper apiKeyMapper, AppUserMapper userMapper, RoleMapper roleMapper) {
+    public ApiKeyService(ApiKeyMapper apiKeyMapper, AppUserMapper userMapper,
+                         RoleMapper roleMapper, RedisUtils redis) {
         this.apiKeyMapper = apiKeyMapper;
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
+        this.redis = redis;
     }
 
     /**
@@ -75,22 +82,67 @@ public class ApiKeyService {
     }
 
     /**
-     * 停用 / 启用。
+     * 停用 / 启用。状态变更后主动删除网关校验缓存（tf:apikey:{sha256}），保证停用立即 401。
      */
     public void changeStatus(Long id, String status) {
         ApiKey key = mustExist(id);
         key.setStatus(status);
         apiKeyMapper.updateById(key);
+        evictGatewayCache(key.getKeyHash());
     }
 
     /**
-     * 重新生成：更新哈希与前缀，旧 Key 立即失效。
+     * 重新生成：更新哈希与前缀，旧 Key 立即失效（旧哈希的网关缓存一并删除）。
      *
      * @return 新 Key 明文（仅此一次）
      */
     public Map<String, Object> regenerate(Long id) {
         ApiKey key = mustExist(id);
-        return persistNewKey(key, null, null);
+        String oldHash = key.getKeyHash();
+        Map<String, Object> result = persistNewKey(key, null, null);
+        evictGatewayCache(oldHash);
+        return result;
+    }
+
+    /**
+     * API Key 内部校验（M3.5：供网关 ApiKeyAuthFilter 缓存未命中时回源调用）。
+     *
+     * <p>按明文的 SHA-256 精确匹配；不存在 / 已停用统一抛 3006（不区分原因，防探测）。
+     * 校验通过即刷新 last_used_at（网关有 60s 缓存，刷新频率天然受限）。</p>
+     *
+     * @param plain Key 明文
+     * @return {userId, account, roleKey, status, expiresAt（一期不过期，固定 null）}
+     * @throws BizException 3006 Key 不存在或已停用
+     */
+    public Map<String, Object> validate(String plain) {
+        ApiKey key = apiKeyMapper.selectOne(new LambdaQueryWrapper<ApiKey>()
+                .eq(ApiKey::getKeyHash, HashUtils.sha256Hex(plain)));
+        if (key == null || !"active".equals(key.getStatus())) {
+            throw new BizException(ErrorCode.API_KEY_INVALID);
+        }
+        AppUser user = userMapper.selectById(key.getUserId());
+        Role role = user == null ? null : roleMapper.selectById(user.getRoleId());
+        if (user == null || role == null || !"active".equals(user.getStatus())) {
+            // 绑定账号或角色异常（被删/停用）视同 Key 失效
+            throw new BizException(ErrorCode.API_KEY_INVALID);
+        }
+        // 刷新最近使用时间（仅回源时发生，网关缓存期内不重复写）
+        key.setLastUsedAt(OffsetDateTime.now());
+        apiKeyMapper.updateById(key);
+
+        // LinkedHashMap：expiresAt 为 null，不能用 Map.of（不接受 null 值）
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("userId", user.getId());
+        data.put("account", user.getAccount());
+        data.put("roleKey", role.getRoleKey());
+        data.put("status", key.getStatus());
+        data.put("expiresAt", null); // api_key 表暂无过期字段，预留
+        return data;
+    }
+
+    /** 删除网关侧校验缓存（停用 / 重生成后旧 Key 立即 401，不等 60s TTL） */
+    private void evictGatewayCache(String keyHash) {
+        redis.delete(GATEWAY_CACHE_PREFIX + keyHash);
     }
 
     /**
@@ -110,7 +162,7 @@ public class ApiKeyService {
         if (userId != null) {
             key.setUserId(userId);
         }
-        key.setKeyHash(sha256(plain));
+        key.setKeyHash(HashUtils.sha256Hex(plain));
         key.setKeyPrefix(plain.substring(0, 8));
         key.setStatus("active");
         if (key.getId() == null) {
@@ -119,21 +171,6 @@ public class ApiKeyService {
             apiKeyMapper.updateById(key);
         }
         return Map.of("id", key.getId(), "apiKey", plain);
-    }
-
-    /** SHA-256 哈希（Key 落库形式） */
-    private static String sha256(String raw) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(raw.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(64);
-            for (byte b : digest) {
-                sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 不可用", e);
-        }
     }
 
     /** 取 Key 或抛 1002 */

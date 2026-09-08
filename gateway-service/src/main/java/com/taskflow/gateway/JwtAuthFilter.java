@@ -37,7 +37,8 @@ import java.util.Set;
  *   <li>通过：把 userId / roleKey 写入 X-User-Id / X-Role-Key 请求头透传下游</li>
  * </ol>
  *
- * <p>API Key（X-API-Key）链路的网关鉴权在 M3 实现（接口文档第 2 章）。</p>
+ * <p>API Key（X-API-Key）链路已由 {@link ApiKeyAuthFilter}（M3.5）在本过滤器之前处理：
+ * 携带 X-API-Key 头的请求到此处时要么已被拦截、要么身份头已注入，故直接放行。</p>
  */
 // @Component：声明为 Spring 组件；实现 GlobalFilter 即对全部路由生效，无需注册
 @Component
@@ -79,6 +80,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
         if (WHITELIST.contains(path) || PING_PATHS.contains(path)) {
+            return chain.filter(exchange);
+        }
+
+        // M3.5：X-API-Key 请求已由 ApiKeyAuthFilter 鉴权并注入身份头，本过滤器跳过
+        if (exchange.getRequest().getHeaders().getFirst("X-API-Key") != null) {
             return chain.filter(exchange);
         }
 
@@ -128,10 +134,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 过滤器顺序：设为最高优先级，鉴权先于其他过滤器执行。
+     * 过滤器顺序：次于 ApiKeyAuthFilter（X-API-Key 请求先由它接管），早于其余过滤器。
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return Ordered.HIGHEST_PRECEDENCE + 1;
     }
 }

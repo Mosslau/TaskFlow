@@ -10,6 +10,8 @@ import com.taskflow.common.ErrorCode;
 import com.taskflow.common.RedisUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -92,6 +94,21 @@ public class PermissionService {
         // 空集合缓存为空串，防止缓存穿透反复查库
         redis.set(cacheKey, String.join(",", perms), CACHE_TTL);
         return perms;
+    }
+
+    /**
+     * 启动预热：把所有角色的权限点缓存写入 Redis。
+     *
+     * <p>背景：task/notification 等下游服务只读共享缓存 {@code auth:perms:{roleKey}}（不查库），
+     * 冷启动时合法角色会因缓存未填充被误判 403（M3.5 的 API Key 服务账号 taskAdmin 即踩中）。
+     * 预热后缓存 miss 只可能由主动失效产生，而各读方均无回源能力，故启动即填满。</p>
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void warmUpPermissionCache() {
+        roleMapper.selectList(null).forEach(role -> {
+            Set<String> perms = getEnabledPermissions(role.getRoleKey());
+            log.info("权限缓存预热: roleKey={}, perms={}", role.getRoleKey(), perms.size());
+        });
     }
 
     /**

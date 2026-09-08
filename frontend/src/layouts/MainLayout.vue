@@ -6,6 +6,7 @@ import { useUserStore } from '../stores/user'
 import { changePasswordApi, logoutApi } from '../api/auth'
 import { roleName } from '../utils/format'
 import { resolveApiError } from '../api/auth'
+import NotificationBell from '../components/NotificationBell.vue'
 
 /**
  * 全局布局框架（UI 设计规范 4.2 页面骨架）：
@@ -144,16 +145,8 @@ async function submitChangePassword() {
       <header class="topbar">
         <h1 class="page-title">{{ pageTitle }}</h1>
         <div class="topbar-right">
-          <el-tooltip content="通知中心（后续里程碑开放）" placement="bottom">
-            <button class="bell-btn" type="button" aria-label="通知">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#5E6D82"
-                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke="#5E6D82" stroke-width="1.8"
-                      stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </button>
-          </el-tooltip>
+          <!-- 通知中心（PRD 4.6.2）：铃铛 + 未读角标 + 消息面板 -->
+          <NotificationBell />
           <el-dropdown trigger="click" @command="handleUserCommand">
             <span class="user-dropdown">
               {{ userName }}

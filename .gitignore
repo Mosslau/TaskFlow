@@ -48,3 +48,6 @@ target/
 .pnpm-store/
 # IDE 配置（IntelliJ）
 .idea/
+
+# 服务运行 PID(由 start.sh 生成,运行态不入库)
+.pids/

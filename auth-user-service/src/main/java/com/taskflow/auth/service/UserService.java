@@ -274,21 +274,33 @@ public class UserService {
 
     /**
      * 用户简明列表（登录即可，供前端下拉与 task-service Feign 解析姓名）。
-     * 支持姓名/账号关键字与部门筛选；只返回非敏感字段。
+     * 支持姓名/账号关键字、部门与角色键筛选；只返回非敏感字段。
      *
      * @param keyword      姓名或账号关键字，可空
      * @param departmentId 部门筛选，可空
-     * @return [{id, name, account, departmentId, departmentName}]
+     * @param roleKey      角色键筛选（M3.5 新增，如 taskAdmin），可空；角色不存在时返回空列表
+     * @return [{id, name, account, departmentId, departmentName, status, roleKey}]
      */
-    public List<Map<String, Object>> lookup(String keyword, Long departmentId) {
+    public List<Map<String, Object>> lookup(String keyword, Long departmentId, String roleKey) {
         LambdaQueryWrapper<AppUser> qw = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             qw.and(w -> w.like(AppUser::getName, keyword).or().like(AppUser::getAccount, keyword));
+        }
+        // 角色键筛选：先解析 roleKey → roleId（角色不存在即无匹配，直接返回空）
+        if (StringUtils.hasText(roleKey)) {
+            Role role = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getRoleKey, roleKey));
+            if (role == null) {
+                return List.of();
+            }
+            qw.eq(AppUser::getRoleId, role.getId());
         }
         qw.eq(departmentId != null, AppUser::getDepartmentId, departmentId)
                 .orderByAsc(AppUser::getId);
         Map<Long, String> deptNames = departmentMapper.selectList(null).stream()
                 .collect(Collectors.toMap(Department::getId, Department::getName));
+        // 角色键 join 展示（数据量小，内存映射即可）
+        Map<Long, String> roleKeys = roleMapper.selectList(null).stream()
+                .collect(Collectors.toMap(Role::getId, Role::getRoleKey));
         return userMapper.selectList(qw).stream()
                 .map(u -> Map.<String, Object>of(
                         "id", u.getId(),
@@ -296,7 +308,8 @@ public class UserService {
                         "account", u.getAccount(),
                         "departmentId", u.getDepartmentId(),
                         "departmentName", deptNames.getOrDefault(u.getDepartmentId(), ""),
-                        "status", u.getStatus()))
+                        "status", u.getStatus(),
+                        "roleKey", roleKeys.getOrDefault(u.getRoleId(), "")))
                 .collect(Collectors.toList());
     }
 

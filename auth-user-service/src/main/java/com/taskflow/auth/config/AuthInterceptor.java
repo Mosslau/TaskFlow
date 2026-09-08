@@ -23,11 +23,13 @@ import java.util.Set;
  */
 public class AuthInterceptor implements HandlerInterceptor {
 
-    /** 无需身份的白名单路径（登录、刷新、健康检查） */
+    /** 无需身份的白名单路径（登录、刷新、健康检查、API Key 内部校验） */
     private static final Set<String> WHITELIST = Set.of(
             "/auth/api/v1/login",
             "/auth/api/v1/refresh",
-            "/auth/api/v1/ping"
+            "/auth/api/v1/ping",
+            // M3.5：网关 ApiKeyAuthFilter 回源校验用，Key 明文本身即凭证
+            "/auth/api/v1/api-keys/validate"
     );
 
     /** 权限点查询（带 Redis 缓存） */

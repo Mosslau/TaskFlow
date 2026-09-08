@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.taskflow.task.config.StringJsonbTypeHandler;
+import com.taskflow.task.config.StringUuidTypeHandler;
 
 import java.time.OffsetDateTime;
 
@@ -21,9 +22,9 @@ public class EventOutbox {
     private Long id;
 
     /** 事件全局唯一 ID（消费端幂等去重键）；DB 为 UUID 列，实体用 String 映射
-     * （event_id 只由 DB 默认 gen_random_uuid() 生成，读取经 StringTypeHandler 转字符串；
+     * （M3：eventId 改由 task-service 生成并随事件信封下发，消费端凭它幂等去重；
      * updateStrategy=NEVER：投递回写时不出现在 UPDATE SET 中，避免 String 写回 UUID 列报错） */
-    @TableField(updateStrategy = FieldStrategy.NEVER)
+    @TableField(updateStrategy = FieldStrategy.NEVER, typeHandler = StringUuidTypeHandler.class)
     private String eventId;
 
     /** 事件类型（task.assigned / task.status.changed / ...） */

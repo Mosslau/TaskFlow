@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -63,5 +64,19 @@ public class ApiKeyController {
     @RequirePerm("manageUser")
     public Result<Map<String, Object>> regenerate(@PathVariable Long id) {
         return Result.ok(apiKeyService.regenerate(id));
+    }
+
+    /**
+     * API Key 内部校验（M3.5，接口文档第 2 章）：供网关 ApiKeyAuthFilter 回源调用。
+     *
+     * <p>已加入拦截器白名单（无身份头也可访问）：明文 Key 本身就是凭证，
+     * 不存在/停用统一回 3006，不泄露额外信息；生产环境服务端口应仅内网可达。</p>
+     *
+     * @param key Key 明文
+     * @return {userId, account, roleKey, status, expiresAt（可空）}
+     */
+    @GetMapping("/validate")
+    public Result<Map<String, Object>> validate(@RequestParam String key) {
+        return Result.ok(apiKeyService.validate(key));
     }
 }

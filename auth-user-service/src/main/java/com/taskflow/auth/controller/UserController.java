@@ -58,14 +58,16 @@ public class UserController {
     }
 
     /**
-     * 用户简明列表（登录即可）：id/姓名/部门，供前端下拉与 task-service 姓名解析。
+     * 用户简明列表（登录即可）：id/姓名/部门/角色键，供前端下拉与 task-service 姓名解析。
      * 与接口 #5 的用户管理列表区分：本接口不含敏感字段、不需 manageUser。
+     * roleKey 可空（M3.5 新增，notification-service 按角色筛选用）。
      */
     @GetMapping("/lookup")
     public Result<java.util.List<Map<String, Object>>> lookup(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long departmentId) {
-        return Result.ok(userService.lookup(keyword, departmentId));
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) String roleKey) {
+        return Result.ok(userService.lookup(keyword, departmentId, roleKey));
     }
 
     /**

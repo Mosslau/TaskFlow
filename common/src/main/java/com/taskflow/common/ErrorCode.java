@@ -105,6 +105,9 @@ public enum ErrorCode {
     /** admin 的 manageUser / setPerm 锁定为开启，防系统失去管理入口（PRD 4.5.4） */
     ADMIN_PERM_LOCKED(3009, "admin 的 manageUser / setPerm 不可关闭", 400),
 
+    /** API Key 有效但访问了未对 Key 开放的路径（一期仅开放 POST /task/api/v1/tasks） */
+    API_KEY_PATH_FORBIDDEN(3010, "API Key 无权访问该接口（仅开放 POST /task/api/v1/tasks）", 403),
+
     // ========== 通知 4xxx ==========
 
     /** 站内消息不存在或试图操作他人消息 */

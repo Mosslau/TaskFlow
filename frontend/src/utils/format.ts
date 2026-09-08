@@ -20,6 +20,22 @@ export function formatDateTime(iso?: string | null): string {
   return dateTimeFormatter.format(d).replace(/\//g, '-')
 }
 
+/**
+ * 相对时间（通知中心列表用）：1 分钟内"刚刚"，1 小时内"x 分钟前"，
+ * 24 小时内"x 小时前"，7 天内"x 天前"，更早回退完整格式化时间。
+ */
+export function formatRelativeTime(iso?: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const diffMs = Date.now() - d.getTime()
+  if (diffMs < 60_000) return '刚刚'
+  if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)} 分钟前`
+  if (diffMs < 86_400_000) return `${Math.floor(diffMs / 3_600_000)} 小时前`
+  if (diffMs < 7 * 86_400_000) return `${Math.floor(diffMs / 86_400_000)} 天前`
+  return formatDateTime(iso)
+}
+
 /** roleKey → 角色名（PRD 1.2 术语） */
 const ROLE_NAMES: Record<string, string> = {
   admin: '系统管理员',
