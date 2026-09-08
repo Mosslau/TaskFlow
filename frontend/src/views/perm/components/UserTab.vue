@@ -295,14 +295,41 @@ async function handleResetPassword(row: UserItem) {
           <span class="tf-num">{{ formatDateTime(row.createdAt) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="230" fixed="right">
+      <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">
+          <!-- 操作列：编辑 + 更多下拉（参考任务列表，避免按钮过多溢出卡片） -->
           <div class="row-ops">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button v-if="row.status === 'active'" link type="danger" @click="toggleStatus(row)">停用</el-button>
-            <el-button v-else link type="primary" @click="toggleStatus(row)">启用</el-button>
-            <el-button link type="primary" @click="openRoleAssign(row)">角色指派</el-button>
-            <el-button link type="primary" @click="handleResetPassword(row)">重置密码</el-button>
+            <span class="op-link" @click="openEdit(row)">编辑</span>
+            <el-dropdown trigger="click">
+              <span class="op-link">
+                更多
+                <svg
+                  class="caret-icon"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m6 9 6 6 6-6"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="toggleStatus(row)">
+                    {{ row.status === 'active' ? '停用' : '启用' }}
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="openRoleAssign(row)">角色指派</el-dropdown-item>
+                  <el-dropdown-item @click="handleResetPassword(row)">重置密码</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </template>
       </el-table-column>
@@ -406,12 +433,31 @@ async function handleResetPassword(row: UserItem) {
   margin-top: 16px;
 }
 .row-ops {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   opacity: 0;
   transition: opacity 120ms ease-out;
   white-space: nowrap;
 }
 :deep(.el-table__row:hover) .row-ops {
   opacity: 1;
+}
+.op-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 22px;
+  color: #0E7C86;
+  cursor: pointer;
+  user-select: none;
+}
+.op-link:hover {
+  color: #0A5F67;
+}
+.op-link .caret-icon {
+  flex: none;
 }
 .empty-tip {
   color: #8A97A8;
