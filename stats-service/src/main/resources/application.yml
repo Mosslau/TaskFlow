@@ -18,6 +18,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: root
   rabbitmq:
     host: 127.0.0.1
     port: 5672

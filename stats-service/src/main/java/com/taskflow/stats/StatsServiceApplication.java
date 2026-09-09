@@ -3,6 +3,7 @@ package com.taskflow.stats;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * 统计域服务启动类。
@@ -16,6 +17,8 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  */
 // @EnableDiscoveryClient：向 Nacos 注册本服务（stats-service）
 @EnableDiscoveryClient
+// @EnableFeignClients：rebuild 经 Feign 拉 task-service 全量任务、查 auth-user-service 用户 lookup
+@EnableFeignClients
 // @SpringBootApplication：配置类 + 自动装配 + 组件扫描（com.taskflow.stats 包及子包）
 @SpringBootApplication
 public class StatsServiceApplication {

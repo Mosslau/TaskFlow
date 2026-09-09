@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 通知域服务启动类。
@@ -14,6 +15,8 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
  * <p>入站：消费 RabbitMQ 中的 task.* 领域事件生成通知（M3 接入，
  * 消费幂等靠 processed_event 表去重）。</p>
  */
+// @EnableScheduling：数据保留清理定时任务（M5 5.5：消息 180 天 / 邮件记录 1 年）
+@EnableScheduling
 // @EnableFeignClients：消费事件时经 Feign 调 auth-user-service 解析用户姓名/邮箱
 @EnableFeignClients
 // @EnableDiscoveryClient：向 Nacos 注册本服务（notification-service）

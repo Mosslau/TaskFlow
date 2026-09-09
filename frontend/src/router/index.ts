@@ -32,7 +32,13 @@ const router = createRouter({
           component: () => import('../views/perm/PermView.vue'),
           meta: { title: '权限管理' },
         },
-        // 统计总览 / 通知中心：后续里程碑接入
+        {
+          path: 'stats',
+          name: 'stats',
+          component: () => import('../views/stats/StatsOverviewView.vue'),
+          meta: { title: '统计总览' },
+        },
+        // 通知中心：后续里程碑接入
       ],
     },
   ],

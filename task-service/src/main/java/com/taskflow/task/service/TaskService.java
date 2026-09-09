@@ -211,6 +211,8 @@ public class TaskService {
         writeOutbox(TaskEvents.TASK_ASSIGNED, Map.of(
                 "taskId", task.getId(), "taskNo", task.getTaskNo(), "title", task.getTitle(),
                 "assigneeId", assigneeId, "creatorId", me,
+                // M5：stats 日聚合需要按优先级分桶（字段只增不改，契约演进规则）
+                "priority", task.getPriority(),
                 "parentId", parentId == null ? "" : parentId,
                 "createdAt", task.getCreatedAt() == null ? OffsetDateTime.now().toString() : task.getCreatedAt().toString()));
         log.info("任务创建: taskNo={}, creator={}, assignee={}", task.getTaskNo(), me, assigneeId);
