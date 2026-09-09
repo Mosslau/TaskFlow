@@ -47,6 +47,18 @@ function goToday() {
   loadCalendar()
 }
 
+/** 日期选择器跳转：selectedDate 已由 v-model 同步，这里把视图切到所选日期所在月份并拉取当月数据 */
+function onPickDate(value: unknown) {
+  const picked = typeof value === 'string' ? value : ''
+  if (!picked) return
+  const [y, m] = picked.split('-').map(Number)
+  const target = new Date(y, m - 1, 1)
+  if (monthParam(target) !== monthParam(current.value)) {
+    current.value = target
+    loadCalendar()
+  }
+}
+
 // ---------- 日历数据 ----------
 const loading = shallowRef(false)
 const days = shallowRef<CalendarDay[]>([])
@@ -207,9 +219,18 @@ function handleCreateSubtask(task: { id: number }) {
       <div class="tf-card cal-card" v-loading="loading">
         <div class="cal-head">
           <div class="cal-nav">
-            <button type="button" aria-label="上一月" @click="shiftMonth(-1)">‹</button>
-            <button type="button" aria-label="下一月" @click="shiftMonth(1)">›</button>
-            <el-button size="small" @click="goToday">今天</el-button>
+            <el-button aria-label="上一月" @click="shiftMonth(-1)">‹</el-button>
+            <el-button aria-label="下一月" @click="shiftMonth(1)">›</el-button>
+            <el-button @click="goToday">今天</el-button>
+            <el-date-picker
+              v-model="selectedDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择日期"
+              :clearable="false"
+              class="cal-date-picker"
+              @change="onPickDate"
+            />
           </div>
           <div class="cal-title">{{ monthLabel }}</div>
           <span class="cal-stat">当月 {{ totalInMonth }} 项到期任务</span>
@@ -340,22 +361,10 @@ function handleCreateSubtask(task: { id: number }) {
   align-items: center;
   gap: 6px;
 }
-.cal-nav > button {
-  width: 30px;
-  height: 30px;
-  border: 1px solid #D8DEE6;
-  border-radius: 6px;
-  background: #FFFFFF;
-  font-size: 14px;
-  color: #5E6D82;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  font-family: inherit;
-}
-.cal-nav > button:hover {
-  border-color: #0E7C86;
-  color: #0E7C86;
+/* 日期选择（选择某一天跳月）：收窄 Element 默认日期宽度(220px)，保证与 ‹ ›/今天/标题同排不换行 */
+.cal-date-picker {
+  --el-date-editor-width: 160px;
+  flex: none;
 }
 .cal-title {
   font-size: 16px;

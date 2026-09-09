@@ -149,6 +149,7 @@ async function handleReadAll() {
         <div class="n-head-actions">
           <el-button
             link
+            type="primary"
             size="small"
             :loading="loading"
             aria-label="刷新"

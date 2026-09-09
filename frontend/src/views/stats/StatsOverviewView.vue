@@ -53,14 +53,16 @@ const RANGE_OPTIONS: { value: StatsRange; label: string }[] = [
 const rangeType = shallowRef<StatsRange>('all')
 const customRange = shallowRef<[string, string] | null>(null)
 
-function switchRange(value: StatsRange) {
-  if (rangeType.value === value) return
-  rangeType.value = value
-  if (value !== 'custom') {
-    loadOverview()
-  } else if (customRange.value?.[0] && customRange.value?.[1]) {
-    loadOverview()
+function switchRange(value: unknown) {
+  const range = value as StatsRange
+  // 区间非 custom：直接刷新；custom 需起止日期齐全才请求（日期变化由 onCustomRangeChange 触发）
+  if (range === 'custom') {
+    if (customRange.value?.[0] && customRange.value?.[1]) {
+      loadOverview()
+    }
+    return
   }
+  loadOverview()
 }
 
 function onCustomRangeChange() {
@@ -367,20 +369,13 @@ const loadEmpty = computed(() => (overview.value?.assigneeLoad.length ?? 0) === 
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             :clearable="false"
-            size="default"
             @change="onCustomRangeChange"
           />
-          <div class="segment" role="tablist">
-            <button
-              v-for="opt in RANGE_OPTIONS"
-              :key="opt.value"
-              type="button"
-              :class="{ on: rangeType === opt.value }"
-              @click="switchRange(opt.value)"
-            >
+          <el-radio-group v-model="rangeType" @change="switchRange">
+            <el-radio-button v-for="opt in RANGE_OPTIONS" :key="opt.value" :value="opt.value">
               {{ opt.label }}
-            </button>
-          </div>
+            </el-radio-button>
+          </el-radio-group>
         </div>
       </div>
       <div class="range-note">
@@ -530,29 +525,6 @@ const loadEmpty = computed(() => (overview.value?.assigneeLoad.length ?? 0) === 
   display: flex;
   align-items: center;
   gap: 12px;
-}
-/* 分段切换（设计稿 .segment） */
-.segment {
-  display: flex;
-  background: #E8ECF1;
-  border-radius: 6px;
-  padding: 2px;
-}
-.segment button {
-  border: none;
-  background: transparent;
-  height: 28px;
-  padding: 0 14px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: inherit;
-  color: #5E6D82;
-  cursor: pointer;
-}
-.segment button.on {
-  background: #0E7C86;
-  color: #FFFFFF;
-  font-weight: 500;
 }
 .range-note {
   margin-top: 8px;

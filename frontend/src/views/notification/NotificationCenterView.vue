@@ -168,7 +168,7 @@ onMounted(() => {
 <template>
   <div class="tf-card notice-view">
     <div class="notice-toolbar">
-      <el-radio-group v-model="filter" size="small" @change="handleFilterChange">
+      <el-radio-group v-model="filter" @change="handleFilterChange">
         <el-radio-button value="all">全部</el-radio-button>
         <el-radio-button value="unread">
           未读<template v-if="unreadCount > 0">&nbsp;({{ unreadCount }})</template>
@@ -176,9 +176,8 @@ onMounted(() => {
       </el-radio-group>
 
       <div class="toolbar-actions">
-        <el-button size="small" :loading="loading" @click="loadList">刷新</el-button>
+        <el-button :loading="loading" @click="loadList">刷新</el-button>
         <el-button
-          size="small"
           type="primary"
           :disabled="unreadCount === 0"
           :loading="readAllSubmitting"
