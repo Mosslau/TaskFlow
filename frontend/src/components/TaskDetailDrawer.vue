@@ -66,10 +66,13 @@ const subtasks = shallowRef<TaskItem[]>([])
 const attachments = shallowRef<TaskAttachment[]>([])
 /** 已归档：评论 / 附件上传禁用（后端 2005 兜底） */
 const isArchived = computed(() => task.value?.status === 'close')
+/** 详情加载失败信息（任务不存在/已删除/无权查看等）：在抽屉内展示明确错误态，避免空白壳 */
+const loadError = shallowRef('')
 
 async function loadDetail() {
   if (!props.taskId) return
   loading.value = true
+  loadError.value = ''
   try {
     const data = await fetchTaskDetailApi(props.taskId)
     task.value = data.task
@@ -80,9 +83,13 @@ async function loadDetail() {
       (a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id,
     )
   } catch (error) {
-    // 2001 任务不存在或不可见等：提示并关闭抽屉
-    ElMessage.error(resolveApiError(error).message)
-    visible.value = false
+    // 2001 任务不存在或不可见等：保留抽屉打开并在抽屉内提示（任务可能已删除/无权查看），
+    // 由用户主动关闭——此前"提示并关闭"会让关闭动画期间渲染一个空白抽屉壳
+    task.value = null
+    subtasks.value = []
+    attachments.value = []
+    timeline.value = []
+    loadError.value = resolveApiError(error).message
   } finally {
     loading.value = false
   }
@@ -461,6 +468,24 @@ async function handleActionChanged() {
           <div v-else class="timeline-empty">暂无操作记录</div>
         </div>
       </template>
+
+      <!-- 加载失败：任务不存在 / 已删除 / 无权查看 —— 抽屉内明确提示，而非空白壳 -->
+      <div v-else-if="loadError" class="d-error">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="#C8493F" stroke-width="1.6" />
+          <path d="M12 7.5v5M12 16.2v.2" stroke="#C8493F" stroke-width="1.8"
+                stroke-linecap="round" />
+        </svg>
+        <p class="d-error-title">{{ loadError }}</p>
+        <p class="d-error-tip">该任务可能已被删除，或你暂无查看权限。</p>
+        <el-button type="primary" plain @click="visible = false">知道了</el-button>
+      </div>
+
+      <!-- 兜底：不应出现（打开即带 taskId 并加载），防止任何空白帧 -->
+      <div v-else-if="!loading" class="d-error">
+        <p class="d-error-title">无法加载任务详情</p>
+        <el-button type="primary" plain @click="visible = false">关闭</el-button>
+      </div>
     </div>
 
     <!-- 更新进度 -->
@@ -836,6 +861,28 @@ async function handleActionChanged() {
   font-size: 13px;
   color: #8A97A8;
   padding: 8px 0;
+}
+
+/* 详情加载失败态（任务不存在/已删除/无权查看） */
+.d-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 72px 32px;
+  text-align: center;
+}
+.d-error-title {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+.d-error-tip {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #8a97a8;
+  line-height: 1.6;
 }
 
 .dialog-desc {

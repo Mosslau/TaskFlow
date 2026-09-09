@@ -10,7 +10,6 @@ import {
   type CalendarTaskItem,
 } from '../../api/task'
 import { resolveApiError } from '../../api/auth'
-import { formatDateTime } from '../../utils/format'
 import TaskDetailDrawer from '../../components/TaskDetailDrawer.vue'
 
 const router = useRouter()

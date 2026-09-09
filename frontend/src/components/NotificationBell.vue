@@ -54,15 +54,22 @@ const loading = shallowRef(false)
 const list = shallowRef<NotificationItem[]>([])
 const total = shallowRef(0)
 const readAllSubmitting = shallowRef(false)
+/** 加载失败信息：网络错误 / 超时（全局 axios 15s）都会收敛到这里，面板不再静默空白/无限加载 */
+const errorMsg = shallowRef('')
 
 async function loadList() {
+  if (loading.value) {
+    return
+  }
   loading.value = true
+  errorMsg.value = ''
   try {
     const data = await fetchNotificationsApi({ page: 1, size: 20 })
     list.value = data.list
     total.value = data.total
   } catch (error) {
-    ElMessage.error(resolveApiError(error).message)
+    // 保留旧列表（若有）只提示刷新失败；空列表时给出错误态 + 重试入口
+    errorMsg.value = resolveApiError(error).message
   } finally {
     loading.value = false
   }
@@ -139,21 +146,43 @@ async function handleReadAll() {
     <div class="n-panel">
       <div class="n-head">
         <span class="n-title">通知中心</span>
-        <el-button
-          link
-          type="primary"
-          size="small"
-          :disabled="unreadCount === 0"
-          :loading="readAllSubmitting"
-          @click="handleReadAll"
-        >
-          全部已读
-        </el-button>
+        <div class="n-head-actions">
+          <el-button
+            link
+            size="small"
+            :loading="loading"
+            aria-label="刷新"
+            @click="loadList"
+          >
+            刷新
+          </el-button>
+          <el-button
+            link
+            type="primary"
+            size="small"
+            :disabled="unreadCount === 0"
+            :loading="readAllSubmitting"
+            @click="handleReadAll"
+          >
+            全部已读
+          </el-button>
+        </div>
       </div>
 
       <div v-loading="loading" class="n-body">
+        <!-- 加载失败：给出明确错误与重试，而非静默空白 -->
+        <div v-if="errorMsg && list.length === 0" class="n-error">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" stroke="#C8493F" stroke-width="1.6" />
+            <path d="M12 7.5v5M12 16.2v.2" stroke="#C8493F" stroke-width="1.8"
+                  stroke-linecap="round" />
+          </svg>
+          <p>{{ errorMsg }}</p>
+          <el-button size="small" type="primary" plain @click="loadList">重试</el-button>
+        </div>
+
         <!-- 空态 -->
-        <div v-if="!loading && list.length === 0" class="n-empty">
+        <div v-else-if="!loading && list.length === 0" class="n-empty">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="#C7D0DB"
                   stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
@@ -161,6 +190,12 @@ async function handleReadAll() {
                   stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           <p>暂无通知消息</p>
+        </div>
+
+        <!-- 旧列表仍在 + 后台刷新失败：顶部细提示条 -->
+        <div v-else-if="errorMsg" class="n-error-bar">
+          <span>刷新失败：{{ errorMsg }}</span>
+          <el-button link type="primary" size="small" @click="loadList">重试</el-button>
         </div>
 
         <!-- 消息列表（时间倒序，后端已排序） -->
@@ -221,7 +256,9 @@ async function handleReadAll() {
         </div>
 
         <!-- 加载态占位高度 -->
-        <div v-if="loading && list.length === 0" class="n-loading-placeholder"></div>
+        <div v-if="loading && list.length === 0" class="n-loading-placeholder">
+          <span class="n-loading-text">加载中…</span>
+        </div>
       </div>
 
       <div v-if="total > list.length" class="n-foot">仅展示最近 {{ list.length }} 条，共 {{ total }} 条</div>
@@ -258,6 +295,11 @@ async function handleReadAll() {
   font-weight: 600;
   color: #12242E;
 }
+.n-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .n-body {
   max-height: 420px;
   min-height: 120px;
@@ -265,6 +307,48 @@ async function handleReadAll() {
 }
 .n-loading-placeholder {
   height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.n-loading-text {
+  color: #8A97A8;
+  font-size: 13px;
+}
+/* 错误态（空列表失败）：图标 + 文案 + 重试 */
+.n-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 20px;
+  color: #C8493F;
+  font-size: 13px;
+  text-align: center;
+}
+.n-error p {
+  margin: 0;
+  color: #5E6D82;
+  line-height: 1.6;
+  word-break: break-all;
+}
+/* 错误条（有旧列表时的后台刷新失败） */
+.n-error-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 12px 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #FDECEC;
+  color: #C8493F;
+  font-size: 12px;
+}
+.n-error-bar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .n-empty {
   display: flex;

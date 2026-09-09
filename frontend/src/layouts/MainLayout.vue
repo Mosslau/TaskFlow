@@ -22,7 +22,7 @@ interface NavItem {
   path: string
   /** 需要的权限点；空串表示登录即可见 */
   perm: string
-  /** M1 是否已接入路由 */
+  /** 是否已接入路由（false 显示为灰色禁用项"后续里程碑开放"） */
   ready: boolean
 }
 
@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
   { key: 'tasks', title: '任务列表', path: '/tasks', perm: '', ready: true },
   { key: 'stats', title: '统计总览', path: '/stats', perm: 'viewStats', ready: true },
   { key: 'calendar', title: '日程', path: '/calendar', perm: '', ready: true },
-  { key: 'notice', title: '通知中心', path: '/notifications', perm: '', ready: false },
+  { key: 'notice', title: '通知中心', path: '/notifications', perm: '', ready: true },
   { key: 'perm', title: '权限管理', path: '/perm', perm: 'manageUser', ready: true },
 ]
 
