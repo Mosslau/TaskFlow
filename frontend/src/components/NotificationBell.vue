@@ -145,16 +145,12 @@ async function handleReadAll() {
     <!-- 消息面板 -->
     <div class="n-panel">
       <div class="n-head">
-        <span class="n-title">通知中心</span>
+        <div class="n-head-left">
+          <span class="n-title">通知中心</span>
+          <span v-if="unreadCount > 0" class="n-count">{{ unreadCount > 99 ? '99+' : unreadCount }} 未读</span>
+        </div>
         <div class="n-head-actions">
-          <el-button
-            link
-            type="primary"
-            size="small"
-            :loading="loading"
-            aria-label="刷新"
-            @click="loadList"
-          >
+          <el-button link type="primary" size="small" :loading="loading" aria-label="刷新" @click="loadList">
             刷新
           </el-button>
           <el-button
@@ -245,11 +241,11 @@ async function handleReadAll() {
           <div class="n-content">
             <div class="n-summary">{{ item.summary }}</div>
             <div class="n-meta">
-              <span class="n-type" :style="{ color: eventTypeColor(item.eventType) }">
+              <span class="n-type" :style="{ color: eventTypeColor(item.eventType), backgroundColor: eventTypeColor(item.eventType) + '14' }">
                 {{ eventTypeName(item.eventType) }}
               </span>
               <span v-if="item.taskNo" class="n-task-no">{{ item.taskNo }}</span>
-              <span class="n-time">{{ formatRelativeTime(item.createdAt) }}</span>
+              <span class="n-time tf-num">{{ formatRelativeTime(item.createdAt) }}</span>
             </div>
           </div>
 
@@ -262,7 +258,10 @@ async function handleReadAll() {
         </div>
       </div>
 
-      <div v-if="total > list.length" class="n-foot">仅展示最近 {{ list.length }} 条，共 {{ total }} 条</div>
+      <div class="n-foot">
+        <span>仅展示最近 {{ list.length }} 条 · 共 {{ total }} 条</span>
+        <el-button link type="primary" @click="router.push('/notifications')">查看全部</el-button>
+      </div>
     </div>
   </el-popover>
 </template>
@@ -288,13 +287,28 @@ async function handleReadAll() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid #E8ECF1;
 }
+.n-head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .n-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #12242E;
+}
+.n-count {
+  height: 20px;
+  line-height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: #FDECEC;
+  color: #C8493F;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .n-head-actions {
   display: flex;
@@ -302,7 +316,7 @@ async function handleReadAll() {
   gap: 4px;
 }
 .n-body {
-  max-height: 420px;
+  max-height: 440px;
   min-height: 120px;
   overflow-y: auto;
 }
@@ -368,8 +382,8 @@ async function handleReadAll() {
 .n-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 12px;
+  padding: 13px 16px;
   cursor: pointer;
   transition: background-color 120ms ease-out;
 }
@@ -385,13 +399,13 @@ async function handleReadAll() {
 }
 .n-icon {
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 .n-content {
   flex: 1;
@@ -400,21 +414,32 @@ async function handleReadAll() {
 .n-summary {
   font-size: 13px;
   color: #5E6D82;
-  line-height: 1.5;
+  line-height: 1.55;
+  /* 最多两行，超长省略，避免长文案把面板撑乱 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   word-break: break-all;
 }
 .n-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 12px;
 }
 .n-type {
   flex: none;
+  height: 20px;
+  line-height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 .n-task-no {
   color: #0E7C86;
+  font-variant-numeric: tabular-nums;
 }
 .n-time {
   margin-left: auto;
@@ -430,11 +455,13 @@ async function handleReadAll() {
   margin-top: 8px;
 }
 .n-foot {
-  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 16px;
   border-top: 1px solid #E8ECF1;
   font-size: 12px;
   color: #8A97A8;
-  text-align: center;
 }
 </style>
 
