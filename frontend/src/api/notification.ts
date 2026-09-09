@@ -34,6 +34,8 @@ export interface NotificationQuery {
   isRead?: boolean
   page: number
   size: number
+  /** 列表口径：business=仅业务通知（默认）；system=仅系统告警；all=全部 */
+  view?: 'business' | 'system' | 'all'
 }
 
 // ---------- 展示映射 ----------
@@ -47,6 +49,7 @@ const EVENT_TYPE_NAMES: Record<string, string> = {
   'task.commented': '新评论',
   'task.due.soon': '到期提醒',
   'task.overdue': '逾期提醒',
+  'mail.failed': '系统告警 · 邮件失败',
 }
 
 export function eventTypeName(eventType?: string | null): string {
@@ -64,6 +67,7 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   'task.commented': '#5E6D82',
   'task.due.soon': '#C77E2B',
   'task.overdue': '#C8493F',
+  'mail.failed': '#C8493F',
 }
 
 export function eventTypeColor(eventType?: string | null): string {

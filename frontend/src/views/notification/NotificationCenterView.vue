@@ -36,6 +36,8 @@ const unreadCount = shallowRef(0)
 // ---------- 任务详情抽屉（本页内就地打开，不跳转） ----------
 const drawerVisible = shallowRef(false)
 const drawerTaskId = shallowRef<number | null>(null)
+/** 是否显示系统运维告警（mail.failed，默认隐藏；对普通业务用户本就无此类消息） */
+const showSystem = shallowRef(false)
 
 async function loadList() {
   loading.value = true
@@ -45,6 +47,8 @@ async function loadList() {
       isRead: filter.value === 'unread' ? false : undefined,
       page: page.value,
       size: size.value,
+      // 默认只看业务通知；打开开关后看全部（含系统告警）
+      view: showSystem.value ? 'all' : 'business',
     })
     list.value = data.list
     total.value = data.total
@@ -176,6 +180,14 @@ onMounted(() => {
       </el-radio-group>
 
       <div class="toolbar-actions">
+        <!-- 系统运维告警(mail.failed)默认不进业务通知列表,需查看时打开 -->
+        <el-switch
+          v-model="showSystem"
+          inline-prompt
+          active-text="系统告警"
+          inactive-text="业务通知"
+          @change="handleFilterChange"
+        />
         <el-button :loading="loading" @click="loadList">刷新</el-button>
         <el-button
           type="primary"

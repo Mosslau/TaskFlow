@@ -45,14 +45,26 @@ public class NotificationService {
         notificationMapper.insert(n);
     }
 
+    /** 系统运维告警事件类型（SMTP 失败等；非业务事件，默认不在业务通知列表展示） */
+    public static final String SYS_ALERT_TYPE = "mail.failed";
+
     /**
      * 分页查询本人消息（接口 #43）：时间倒序，可按已读筛选。
+     *
+     * @param view 列表口径：business=仅业务通知（默认，排除 mail.failed 系统告警）；
+     *             system=仅系统告警；all=全部
      */
-    public Page<Map<String, Object>> page(Long recipientId, Boolean isRead, int page, int size) {
+    public Page<Map<String, Object>> page(Long recipientId, Boolean isRead, int page, int size, String view) {
         LambdaQueryWrapper<Notification> qw = new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getRecipientId, recipientId)
-                .eq(isRead != null, Notification::getIsRead, isRead)
-                .orderByDesc(Notification::getCreatedAt);
+                .eq(isRead != null, Notification::getIsRead, isRead);
+        if ("system".equals(view)) {
+            qw.eq(Notification::getEventType, SYS_ALERT_TYPE);
+        } else if (!"all".equals(view)) {
+            // 默认 business：业务通知，排除系统运维告警
+            qw.ne(Notification::getEventType, SYS_ALERT_TYPE);
+        }
+        qw.orderByDesc(Notification::getCreatedAt);
         Page<Notification> raw = notificationMapper.selectPage(new Page<>(page, size), qw);
 
         Page<Map<String, Object>> result = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
@@ -95,12 +107,14 @@ public class NotificationService {
     }
 
     /**
-     * 未读数（接口 #46，前端 60 秒轮询）。
+     * 未读数（接口 #46，前端 60 秒轮询）。只统计业务通知，排除系统运维告警（mail.failed），
+     * 保证铃铛角标只反映"有实际业务要看"的未读。
      */
     public long unreadCount(Long me) {
         return notificationMapper.selectCount(new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getRecipientId, me)
-                .eq(Notification::getIsRead, false));
+                .eq(Notification::getIsRead, false)
+                .ne(Notification::getEventType, SYS_ALERT_TYPE));
     }
 
     /**

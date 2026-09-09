@@ -28,12 +28,15 @@ public class NotificationController {
 
     /**
      * 消息列表（接口 #43）：时间倒序，可按已读筛选。
+     *
+     * @param view 列表口径：business=仅业务通知（默认）；system=仅系统告警；all=全部
      */
     @GetMapping("/notifications")
     public Result<Map<String, Object>> list(@RequestParam(required = false) Boolean isRead,
                                             @RequestParam(defaultValue = "1") int page,
-                                            @RequestParam(defaultValue = "20") int size) {
-        Page<Map<String, Object>> p = notificationService.page(AuthContext.getUserId(), isRead, page, size);
+                                            @RequestParam(defaultValue = "20") int size,
+                                            @RequestParam(defaultValue = "business") String view) {
+        Page<Map<String, Object>> p = notificationService.page(AuthContext.getUserId(), isRead, page, size, view);
         return Result.ok(Map.of(
                 "list", p.getRecords(),
                 "total", p.getTotal(),

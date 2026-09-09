@@ -231,6 +231,14 @@ async function handleReadAll() {
                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
             <!-- 提交验收 / 新评论 / 其他：气泡 -->
+            <svg v-else-if="item.eventType === 'mail.failed'" width="16" height="16"
+                 viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="3.5" y="5.5" width="17" height="13" rx="2" :stroke="eventTypeColor(item.eventType)"
+                    stroke-width="1.7" />
+              <path d="m4.5 7 7.5 5.5L19.5 7" :stroke="eventTypeColor(item.eventType)"
+                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <!-- 其他业务事件：气泡 -->
             <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-5 4V6.5Z"
                     :stroke="eventTypeColor(item.eventType)" stroke-width="1.7"
