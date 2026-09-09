@@ -9,6 +9,7 @@ import com.taskflow.notification.entity.Notification;
 import com.taskflow.notification.mapper.NotificationMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -100,5 +101,19 @@ public class NotificationService {
         return notificationMapper.selectCount(new LambdaQueryWrapper<Notification>()
                 .eq(Notification::getRecipientId, me)
                 .eq(Notification::getIsRead, false));
+    }
+
+    /**
+     * 某接收人在近 N 分钟内是否已有指定事件类型的通知（告警去重用）。
+     *
+     * @param recipientId 接收人
+     * @param eventType   事件类型（如 mail.failed）
+     * @param minutes     回溯窗口分钟
+     */
+    public boolean hasRecent(Long recipientId, String eventType, int minutes) {
+        return notificationMapper.selectCount(new LambdaQueryWrapper<Notification>()
+                .eq(Notification::getRecipientId, recipientId)
+                .eq(Notification::getEventType, eventType)
+                .ge(Notification::getCreatedAt, OffsetDateTime.now().minusMinutes(minutes))) > 0;
     }
 }

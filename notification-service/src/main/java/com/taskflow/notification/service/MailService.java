@@ -103,24 +103,36 @@ public class MailService {
         mailRecordMapper.insert(r);
     }
 
-    /** 邮件最终失败：给全体系统管理员写站内告警（PRD 4.6.3） */
+    /** 邮件最终失败：给系统管理员写站内告警（PRD 4.6.3）。
+     *  取用户用 getUser(1)(消费线程内已验证可行的 Feign),去重:30 分钟窗口内已有
+     *  mail.failed 告警则跳过,避免 SMTP 未配置时刷屏。 */
     @SuppressWarnings("unchecked")
     private void alertAdmins(Long taskId, String subject, String recipientEmail) {
         try {
-            Map<String, Object> resp = authUserClient.lookup("admin");
-            List<Map<String, Object>> admins = (List<Map<String, Object>>) resp.get("data");
-            if (admins == null) {
+            Map<String, Object> resp = authUserClient.getUser(1L);
+            Map<String, Object> admin = (Map<String, Object>) resp.get("data");
+            if (admin == null || !"active".equals(admin.get("status"))) {
                 return;
             }
-            for (Map<String, Object> admin : admins) {
-                Long adminId = ((Number) admin.get("id")).longValue();
-                notificationService.insert(adminId, "mail.failed",
-                        "邮件发送失败（已重试 3 次）：「" + subject + "」→ " + recipientEmail
-                                + "，请检查 SMTP 配置。",
-                        taskId, null);
+            Long adminId = ((Number) admin.get("id")).longValue();
+            // 去重：30 分钟窗口内已有同类告警则不再重复（避免邮件失败风暴占满通知中心）
+            if (notificationService.hasRecent(adminId, "mail.failed", 30)) {
+                return;
             }
+            notificationService.insert(adminId, "mail.failed",
+                    "邮件发送失败（已重试 3 次）：「" + truncate(subject, 60) + "」→ " + recipientEmail
+                            + "，请检查 SMTP 配置。",
+                    taskId, null);
         } catch (Exception e) {
             log.error("邮件失败告警管理员失败: {}", e.getMessage());
         }
+    }
+
+    /** 摘要过长截断：避免长邮件主题把通知摘要撑乱 */
+    private static String truncate(String s, int max) {
+        if (s == null || s.length() <= max) {
+            return s;
+        }
+        return s.substring(0, max) + "…";
     }
 }
