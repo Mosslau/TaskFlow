@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,10 +61,15 @@ public class TaskController {
 
     /**
      * 创建任务（接口 #20；body 含 parentId 即创建子任务）。
+     *
+     * <p>M6 #1：来源渠道由网关透传的身份上下文决定——JWT 前端无 X-Task-Source 头默认"网页"；
+     * OpenAPI（X-API-Key 经网关）时网关注入 {@code X-Task-Source: openapi}，
+     * 本接口据此落"OpenAPI"。Excel 导入走 ImportExportService 直传，不经过本方法。</p>
      */
     @PostMapping
     @RequirePerm("create")
-    public Result<Task> create(@RequestBody Map<String, Object> body) {
+    public Result<Task> create(@RequestBody Map<String, Object> body,
+                               @RequestHeader(value = "X-Task-Source", required = false) String taskSourceHeader) {
         Task task = taskService.create(
                 (String) body.get("title"),
                 (String) body.get("description"),
@@ -71,7 +77,8 @@ public class TaskController {
                 (String) body.get("priority"),
                 Long.valueOf(String.valueOf(body.get("assigneeId"))),
                 body.get("dueAt") == null ? null : OffsetDateTime.parse((String) body.get("dueAt")),
-                body.get("parentId") == null ? null : Long.valueOf(String.valueOf(body.get("parentId"))));
+                body.get("parentId") == null ? null : Long.valueOf(String.valueOf(body.get("parentId"))),
+                "openapi".equalsIgnoreCase(taskSourceHeader) ? TaskService.SOURCE_OPENAPI : null);
         return Result.ok(task);
     }
 

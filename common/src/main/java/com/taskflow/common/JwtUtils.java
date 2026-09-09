@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * JWT 工具（架构文档 4.1 登录与鉴权链路）。
@@ -24,6 +25,8 @@ import java.util.Date;
  * <ul>
  *   <li>{@code sub}：用户 id（JWT 标准 subject 字段）</li>
  *   <li>{@code roleKey}：角色键（admin/taskAdmin/user），下游服务据此做本地权限点校验</li>
+ *   <li>{@code jti}：每次签发唯一（M6 #4，黑名单按 jti 而非 token 字符串，
+ *       避免同一秒内改密后重登产出与已拉黑 token 完全相同的 JWT）</li>
  *   <li>{@code iat / exp}：签发与过期时间，有效期默认 2 小时</li>
  * </ul>
  *
@@ -76,6 +79,7 @@ public class JwtUtils {
         return Jwts.builder()
                 .subject(String.valueOf(userId))      // sub：用户 id
                 .claim("roleKey", roleKey)            // 自定义 claim：角色键
+                .id(UUID.randomUUID().toString())     // jti：每次签发唯一（M6 #4，黑名单按 jti）
                 .issuedAt(Date.from(now))             // iat：签发时间
                 .expiration(Date.from(now.plusMillis(ttlMillis))) // exp：过期时间
                 .signWith(key)                        // HS256 签名

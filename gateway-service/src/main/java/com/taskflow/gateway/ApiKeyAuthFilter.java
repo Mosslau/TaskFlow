@@ -155,8 +155,11 @@ public class ApiKeyAuthFilter implements GlobalFilter, Ordered {
         try {
             JsonNode identity = objectMapper.readTree(identityJson);
             ServerHttpRequest mutated = request.mutate()
+                    .headers(h -> h.remove("X-Task-Source")) // 防客户端伪造，仅由本过滤器注入
                     .header("X-User-Id", String.valueOf(identity.path("userId").asLong()))
                     .header("X-Role-Key", identity.path("roleKey").asText())
+                    // M6 #1：OpenAPI 渠道来源标记 → task-service 创建任务落 source="OpenAPI"
+                    .header("X-Task-Source", "openapi")
                     .build();
             return chain.filter(exchange.mutate().request(mutated).build());
         } catch (Exception e) {

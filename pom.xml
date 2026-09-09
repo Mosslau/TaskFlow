@@ -18,6 +18,7 @@
         <module>task-service</module>
         <module>notification-service</module>
         <module>stats-service</module>
+        <module>tests/acceptance</module>
     </modules>
 
     <properties>

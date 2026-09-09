@@ -14,17 +14,24 @@ import com.taskflow.task.config.AuthContext;
 import com.taskflow.task.entity.EventOutbox;
 import com.taskflow.task.entity.Task;
 import com.taskflow.task.entity.TaskAttachment;
+import com.taskflow.task.entity.TaskComment;
 import com.taskflow.task.entity.TaskTimeline;
 import com.taskflow.task.mapper.EventOutboxMapper;
 import com.taskflow.task.mapper.TaskAttachmentMapper;
+import com.taskflow.task.mapper.TaskCommentMapper;
 import com.taskflow.task.mapper.TaskMapper;
 import com.taskflow.task.mapper.TaskTimelineMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -32,8 +39,10 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * 任务核心服务（PRD 4.1 + 接口文档第 4 章）。
@@ -56,30 +65,47 @@ public class TaskService {
     public static final String ST_DONE = "done";
     public static final String ST_CLOSE = "close";
 
+    /** 来源渠道（PRD 4.1.1 / 接口文档：task.source CHECK 枚举三值） */
+    public static final String SOURCE_WEB = "网页";
+    public static final String SOURCE_EXCEL_IMPORT = "Excel 导入";
+    public static final String SOURCE_OPENAPI = "OpenAPI";
+    private static final Set<String> SOURCES =
+            Set.of(SOURCE_WEB, SOURCE_EXCEL_IMPORT, SOURCE_OPENAPI);
+
     /** 任务类型枚举（PRD 4.1.1） */
     private static final Set<String> TASK_TYPES = Set.of(
             "项目开发", "日常事务", "会议事项", "调研分析", "数据报表", "流程审批");
     /** 优先级枚举 */
     private static final Set<String> PRIORITIES = Set.of("P0", "P1", "P2", "P3");
 
+    /** 附件落盘文件名只许 UUID（与 TaskAttachmentService 同一防穿越口径） */
+    private static final Pattern STORED_NAME_PATTERN =
+            Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+
     private final TaskMapper taskMapper;
     private final TaskTimelineMapper timelineMapper;
     private final EventOutboxMapper outboxMapper;
     private final TaskAttachmentMapper attachmentMapper;
+    private final TaskCommentMapper commentMapper;
     private final UserClient userClient;
     private final RedisUtils redis;
+    /** 附件存储根路径（taskflow.attachment.root；删除任务时清落盘文件用） */
+    private final Path attachmentRoot;
     // 注册 JavaTimeModule：事件信封的 occurredAt 是 Instant（M3 事件契约）
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     public TaskService(TaskMapper taskMapper, TaskTimelineMapper timelineMapper,
                        EventOutboxMapper outboxMapper, TaskAttachmentMapper attachmentMapper,
-                       UserClient userClient, RedisUtils redis) {
+                       TaskCommentMapper commentMapper, UserClient userClient, RedisUtils redis,
+                       @Value("${taskflow.attachment.root:/tmp/taskflow/attachments}") String attachmentRoot) {
         this.taskMapper = taskMapper;
         this.timelineMapper = timelineMapper;
         this.outboxMapper = outboxMapper;
         this.attachmentMapper = attachmentMapper;
+        this.commentMapper = commentMapper;
         this.userClient = userClient;
         this.redis = redis;
+        this.attachmentRoot = Paths.get(attachmentRoot).toAbsolutePath().normalize();
     }
 
     // ==================== 可见性与权限辅助 ====================
@@ -154,13 +180,28 @@ public class TaskService {
     // ==================== 创建 ====================
 
     /**
-     * 创建任务（含子任务）。
+     * 创建任务（含子任务），来源默认"网页"（前端 JWT 渠道）。
      *
      * @return 创建后的任务
      */
     @Transactional
     public Task create(String title, String description, String taskType, String priority,
                        Long assigneeId, OffsetDateTime dueAt, Long parentId) {
+        return create(title, description, taskType, priority, assigneeId, dueAt, parentId, SOURCE_WEB);
+    }
+
+    /**
+     * 创建任务（含子任务）。
+     *
+     * <p>M6 修复 #1：来源渠道不再写死——顶层任务按入参 source 落库
+     * （网页默认 / Excel 导入 / OpenAPI），子任务固定"网页"（PRD 4.1.7）。</p>
+     *
+     * @param source 来源渠道（"网页"/"Excel 导入"/"OpenAPI"）；非法或空值兜底"网页"
+     * @return 创建后的任务
+     */
+    @Transactional
+    public Task create(String title, String description, String taskType, String priority,
+                       Long assigneeId, OffsetDateTime dueAt, Long parentId, String source) {
         Long me = AuthContext.getUserId();
 
         // 基础校验
@@ -185,13 +226,14 @@ public class TaskService {
             checkNotArchived(parent);
             task.setParentId(parentId);
             task.setTaskType(parent.getTaskType());
-            task.setSource("网页");
+            task.setSource(SOURCE_WEB);
         } else {
             if (taskType != null && !TASK_TYPES.contains(taskType)) {
                 throw new BizException(ErrorCode.PARAM_INVALID, "任务类型非法");
             }
             task.setTaskType(taskType == null ? "项目开发" : taskType);
-            task.setSource("网页");
+            // M6 #1：来源由渠道透传（网页 / Excel 导入 / OpenAPI），非法值兜底"网页"
+            task.setSource(source != null && SOURCES.contains(source) ? source : SOURCE_WEB);
         }
 
         task.setTaskNo("TSK-" + taskMapper.nextTaskNo());
@@ -283,6 +325,28 @@ public class TaskService {
         item.put("createdAt", t.getCreatedAt() == null ? null : t.getCreatedAt().toString());
         item.put("updatedAt", t.getUpdatedAt() == null ? null : t.getUpdatedAt().toString());
         return item;
+    }
+
+    /**
+     * 批量补父任务编号（PRD 4.1.7 / 接口文档列表项 parentTaskNo）：
+     * 收集所有非空 parentId → 一次批量查 task 表 id→taskNo → 逐项写入。
+     * 顶层任务（parentId 为空）置 null；父任务被删等极端情形取不到编号同样置 null。
+     */
+    private void fillParentTaskNo(List<Map<String, Object>> items) {
+        List<Long> parentIds = items.stream()
+                .map(it -> (Long) it.get("parentId"))
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        Map<Long, String> taskNoById = new HashMap<>();
+        if (!parentIds.isEmpty()) {
+            taskMapper.selectBatchIds(parentIds)
+                    .forEach(p -> taskNoById.put(p.getId(), p.getTaskNo()));
+        }
+        for (Map<String, Object> item : items) {
+            Object pid = item.get("parentId");
+            item.put("parentTaskNo", pid == null ? null : taskNoById.get(pid));
+        }
     }
 
     // ==================== 查询 ====================
@@ -385,13 +449,15 @@ public class TaskService {
         }
 
         Page<Map<String, Object>> result = new Page<>(raw.getCurrent(), raw.getSize(), raw.getTotal());
-        Map<Long, Long> finalChildCounts = childCounts;
-        result.setRecords(raw.getRecords().stream()
+        List<Map<String, Object>> records = raw.getRecords().stream()
                 .map(t -> {
                     Map<String, Object> item = toItem(t, snapshot);
-                    item.put("hasChildren", finalChildCounts.getOrDefault(t.getId(), 0L) > 0);
+                    item.put("hasChildren", childCounts.getOrDefault(t.getId(), 0L) > 0);
                     return item;
-                }).collect(java.util.stream.Collectors.toList()));
+                }).collect(java.util.stream.Collectors.toList());
+        // M6 #2：列表项带父任务编号（子任务展示 [父编号]，顶层为 null）
+        fillParentTaskNo(records);
+        result.setRecords(records);
         return result;
     }
 
@@ -439,6 +505,10 @@ public class TaskService {
                                 .orderByAsc(Task::getCreatedAt))
                 .stream().map(st -> toItem(st, snapshot))
                 .collect(java.util.stream.Collectors.toList());
+        // M6 #2：主任务项若为子任务同样补父编号；子任务数组的父编号即当前任务编号（一级嵌套）
+        Map<String, Object> taskItem = toItem(task, snapshot);
+        fillParentTaskNo(List.of(taskItem));
+        subtaskItems.forEach(st -> st.put("parentTaskNo", task.getTaskNo()));
         // 附件列表（PRD 4.1.6；前端按 attachments 契约渲染，字段子集与附件列表一致）
         List<Map<String, Object>> attachmentItems = attachmentMapper.selectList(
                         new LambdaQueryWrapper<TaskAttachment>()
@@ -453,9 +523,12 @@ public class TaskService {
                     item.put("createdAt", att.getCreatedAt() == null ? null : att.getCreatedAt().toString());
                     return item;
                 }).collect(java.util.stream.Collectors.toList());
-        return Map.of("task", toItem(task, snapshot),
-                "timeline", timelineItems, "subtasks", subtaskItems,
-                "attachments", attachmentItems);
+        Map<String, Object> result = new HashMap<>();
+        result.put("task", taskItem);
+        result.put("timeline", timelineItems);
+        result.put("subtasks", subtaskItems);
+        result.put("attachments", attachmentItems);
+        return result;
     }
 
     // ==================== 编辑与删除 ====================
@@ -514,6 +587,10 @@ public class TaskService {
 
     /**
      * 删除任务（接口 #23，权限点 deleteOwn）：仅待办状态，物理删除（PRD 4.1.2）。
+     *
+     * <p>M6 修复 #3：task_comment / task_attachment 对 task 的 FK 无级联，
+     * 删除前先清从属资源（评论 + 附件 + 时间线），附件落盘文件一并删除（失败仅告警），
+     * 全程同一事务。</p>
      */
     @Transactional
     public void delete(Long id) {
@@ -522,11 +599,43 @@ public class TaskService {
         if (!ST_NEW.equals(task.getStatus())) {
             throw new BizException(ErrorCode.DELETE_ONLY_TODO);
         }
-        // 物理删除任务与其时间线
+        // ① 附件：先取落盘文件名（删记录前留档），再删记录
+        List<TaskAttachment> attachments = attachmentMapper.selectList(
+                new LambdaQueryWrapper<TaskAttachment>().eq(TaskAttachment::getTaskId, id));
+        attachmentMapper.delete(new LambdaQueryWrapper<TaskAttachment>().eq(TaskAttachment::getTaskId, id));
+        // ② 评论（FK 无级联，必须显式先删）
+        commentMapper.delete(new LambdaQueryWrapper<TaskComment>().eq(TaskComment::getTaskId, id));
+        // ③ 时间线与任务本体
         timelineMapper.delete(new LambdaQueryWrapper<TaskTimeline>().eq(TaskTimeline::getTaskId, id));
         taskMapper.deleteById(id);
-        log.info("任务删除: taskNo={}, operator={}", task.getTaskNo(), AuthContext.getUserId());
+        // ④ 附件落盘文件随记录删除（删除失败不影响事务结果，残留由运维清理）
+        for (TaskAttachment att : attachments) {
+            deleteAttachmentFile(att.getStoredName());
+        }
+        log.info("任务删除: taskNo={}, operator={}（评论/附件/时间线已随删）",
+                task.getTaskNo(), AuthContext.getUserId());
         // 审计日志经 Feign 写 auth-user-service（M2 简化：删除留痕在本服务日志 + 后续里程碑接审计接口）
+    }
+
+    /**
+     * 删除附件落盘文件（防路径穿越：storedName 须严格 UUID 且解析路径在根目录内）。
+     */
+    private void deleteAttachmentFile(String storedName) {
+        if (storedName == null || !STORED_NAME_PATTERN.matcher(storedName).matches()) {
+            log.warn("任务删除时跳过非法附件文件名: storedName={}", storedName);
+            return;
+        }
+        try {
+            Path path = attachmentRoot.resolve(storedName).normalize();
+            if (!path.startsWith(attachmentRoot)) {
+                log.warn("任务删除时跳过越界附件路径: storedName={}", storedName);
+                return;
+            }
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.warn("任务删除时附件文件删除失败（记录已删）: storedName={}, err={}",
+                    storedName, e.getMessage());
+        }
     }
 
     // ==================== 状态机动作（PRD 4.1.2）====================

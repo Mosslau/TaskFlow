@@ -1,0 +1,10 @@
+# Docker 构建上下文精简(仅影响 docker compose build;上下文为 deploy/ 目录本身)
+# 注意: 不要排除 artifacts/ —— 那是各镜像 COPY 的 jar / 前端产物来源
+.env
+.env.local
+logs/
+.pids/
+data/
+backups/
+.git/
+*.md

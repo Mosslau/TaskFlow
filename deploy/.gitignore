@@ -1,0 +1,19 @@
+# ===== TaskFlow deploy 运行时产物(不入库) =====
+# 敏感配置(复制自 .env.example 后填写,绝不提交真实密钥)
+.env
+
+# 构建产物(由 build.sh 生成)
+artifacts/
+
+# 运行态(由 start-all.sh / docker compose 生成)
+logs/
+.pids/
+
+# Compose 绑定卷落盘目录(附件存储)
+data/
+
+# 备份(由 backup.sh 生成)
+backups/
+
+# macOS
+.DS_Store

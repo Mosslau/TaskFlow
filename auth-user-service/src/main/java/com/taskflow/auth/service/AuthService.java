@@ -31,7 +31,8 @@ import java.util.Set;
  *   <li>{@code auth:fail:{account}} —— 登录失败计数（5 次锁 15 分钟，TTL 即锁定时长）</li>
  *   <li>{@code auth:lock:{account}} —— 锁定标记</li>
  *   <li>{@code auth:refresh:{userId}} —— 刷新令牌（7 天）</li>
- *   <li>{@code auth:blacklist:{token}} —— JWT 黑名单（TTL = 令牌剩余有效期）</li>
+ *   <li>{@code auth:blacklist:{jti}} —— JWT 黑名单（M6 #4：按令牌唯一 jti 而非 token 字符串，
+ *       改密后同一秒内重登的新 token 带新 jti，不会被误拦；TTL = 令牌剩余有效期）</li>
  * </ul>
  */
 // @Service：业务层组件，纳入 Spring 容器并可参与声明式事务
@@ -133,9 +134,12 @@ public class AuthService {
      */
     public void logout(Long userId, String token) {
         // 黑名单 TTL 覆盖令牌剩余有效期即可（2h），到期自动清理
-        redis.set("auth:blacklist:" + token, "1", Duration.ofHours(2));
+        String blacklistKey = blacklistKeyOf(token);
+        if (blacklistKey != null) {
+            redis.set(blacklistKey, "1", Duration.ofHours(2));
+        }
         redis.delete("auth:refresh:" + userId);
-        log.info("注销: userId={}", userId);
+        log.info("注销: userId={}, blacklistKey={}", userId, blacklistKey);
     }
 
     /**
@@ -191,10 +195,34 @@ public class AuthService {
         log.info("改密成功: userId={}", userId);
 
         // 旧令牌全部失效：当前 JWT 拉黑 + 刷新令牌删除（PRD 7.3.2）
-        if (currentToken != null) {
-            redis.set("auth:blacklist:" + currentToken, "1", Duration.ofHours(2));
+        String blacklistKey = blacklistKeyOf(currentToken);
+        if (blacklistKey != null) {
+            redis.set(blacklistKey, "1", Duration.ofHours(2));
         }
         redis.delete("auth:refresh:" + userId);
+    }
+
+    /**
+     * JWT 黑名单键：M6 #4 优先取令牌唯一 {@code jti}（改密后同秒重登的新 token 是新 jti，
+     * 不会命中已拉黑的旧 jti）；解析失败（过期/伪造）或旧版无 jti 令牌回退整串 token，
+     * 保持与网关 {@code auth:blacklist:*} 键风格一致。
+     *
+     * @return Redis 黑名单键；token 为空返回 null
+     */
+    private String blacklistKeyOf(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            String jti = jwtUtils.parse(token).getId();
+            if (jti != null && !jti.isBlank()) {
+                return "auth:blacklist:" + jti;
+            }
+        } catch (Exception e) {
+            // 令牌过期/非法：不再拉黑能力内（回退整串键，保持旧语义不丢黑名单）
+            log.warn("黑名单键解析 jti 失败，回退整串 token 键: {}", e.getMessage());
+        }
+        return "auth:blacklist:" + token;
     }
 
     /**

@@ -1,0 +1,331 @@
+# ============================================================
+# TaskFlow M6.3 一键编排(docker-compose.yml)
+#
+# 架构:
+#   postgres:16 + redis:7 + rabbitmq:3-management + nacos(v2.4.3 单机/内置 Derby)
+#   + 五个 Spring Boot 服务(镜像由 deploy/docker/<svc>/Dockerfile 构建,只 COPY 预构建 jar)
+#   + frontend(Nginx 托管 Vue3 dist,反代到内部网关)
+#   服务间通信用 compose 内部网络 taskflow-net 的服务名(如 nacos:8848、postgres:5432),
+#   各 application.yml 里的 127.0.0.1 通过 environment 覆盖。
+#
+# 使用(务必按顺序):
+#   1) ./build.sh                         # 本地产出 deploy/artifacts/** (jar + 前端 dist)
+#   2) cp .env.example .env && 修改敏感项  # JWT_SECRET/数据库口令等,见 .env.example
+#   3) docker compose config              # (可选)语法校验
+#   4) docker compose up -d --build
+#   验证: http://<host>:8080 前端;curl http://<host>:8000/auth/api/v1/ping
+#         Nacos 控制台 http://<host>:8848/nacos
+#   停止: docker compose down            (不删卷,数据保留)
+#         docker compose down -v        (连卷一起删,数据丢失!仅测试环境)
+#
+# 说明:
+#   - MySQL:本项目业务不使用 MySQL;Nacos v2.4.3 单机模式默认内置 Derby,亦无需 MySQL。
+#     文件末尾保留了 MySQL 服务注释块供参考。
+#   - 敏感值全部来自 environment/.env,不写死在镜像内。
+#   - 端口映射按需:8080(前端)、8000(网关)、5432/6379/5672/15672/8848/9848(中间件,
+#     供宿主机调试与 backup.sh 使用)。若宿主已占用某端口(如本机 brew 起的中间件),
+#     改映射或先停宿主服务(见 README FAQ)。
+# ============================================================
+
+name: taskflow
+
+# ---------- 通用片段 ----------
+# 五个 Spring 服务的公共环境(app 侧指向内部服务名)
+x-app-env: &app-env
+  TZ: ${TZ:-Asia/Shanghai}
+  # JWT 密钥:网关签发 + 各服务校验,必须一致。dev 回退值仅供本地演示,生产必改
+  JWT_SECRET: ${JWT_SECRET:-taskflow-dev-secret-please-override}
+  # 注册中心:覆盖各 application.yml 写死的 127.0.0.1:8848
+  SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+  SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+  # Redis(网关/认证/任务/统计使用)
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: "6379"
+  SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-root}
+  # RabbitMQ(task/notification/stats 使用;用户名口令由 .env 提供)
+  SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_PORT: "5672"
+  SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-taskflow}
+  SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-taskflow}
+  SPRING_RABBITMQ_VIRTUAL_HOST: /
+
+x-app-restart: &app-restart
+  restart: unless-stopped
+  networks:
+    - taskflow-net
+
+# Java 应用健康检查公共参数(TCP 探活应用端口)
+x-java-health-params: &java-health-params
+  interval: 30s
+  timeout: 5s
+  retries: 5
+  start_period: 120s
+
+# 中间件健康检查公共参数
+x-mw-health-params: &mw-health-params
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 20s
+
+# ============================================================
+# 中间件
+# ============================================================
+services:
+  postgres:
+    image: postgres:16
+    <<: *app-restart
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      POSTGRES_DB: postgres          # 默认连接库(仅用于初始化)
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # 首次初始化自动创建四个业务库(表结构由各服务 Flyway 建)
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"                  # 供宿主机 pg_dump 备份 / psql 调试;冲突则改 127.0.0.1:5433:5432
+    healthcheck:
+      <<: *mw-health-params
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d postgres"]
+
+  redis:
+    image: redis:7
+    <<: *app-restart
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-root}", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      <<: *mw-health-params
+      test: ["CMD-SHELL", "redis-cli -a '${REDIS_PASSWORD:-root}' ping | grep -q PONG"]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    <<: *app-restart
+    environment:
+      # 非默认用户,规避 guest 仅限本机回环的限制
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-taskflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-taskflow}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"                  # AMQP
+      - "15672:15672"                # 管理控制台 http://<host>:15672 (用户名/口令同上)
+    healthcheck:
+      <<: *mw-health-params
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+
+  # Nacos 注册中心(v2.4.3,单机 standalone + 内置 Derby,无需外部数据库)
+  # 备选镜像 v3.2.4:见 README「Nacos 说明」(v3 控制台默认移到了 8080,与前端冲突需调整)
+  nacos:
+    image: nacos/nacos-server:v2.4.3
+    <<: *app-restart
+    environment:
+      # 单机模式 + 内置 Derby(等价启动参数 -m standalone)
+      MODE: standalone
+      NACOS_AUTH_ENABLE: ${NACOS_AUTH_ENABLE:-false}
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:-}
+      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:-}
+      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:-}
+      JVM_XMS: 512m
+      JVM_XMX: 512m
+    ports:
+      - "8848:8848"                  # 注册/配置 API + v2 控制台 http://<host>:8848/nacos
+      - "9848:9848"                  # nacos 客户端 gRPC(服务端口+1000),必开
+      # - "9849:9849"                # 集群间 gRPC,单机不需要
+
+# ============================================================
+# 五个 Spring Boot 服务
+# ============================================================
+  gateway-service:
+    build:
+      context: .
+      dockerfile: docker/gateway-service/Dockerfile
+    image: taskflow/gateway-service:1.0.0
+    <<: *app-restart
+    environment:
+      <<: *app-env
+    ports:
+      - "8000:8000"                  # 对外 API 网关
+    depends_on:
+      nacos:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-health-params
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
+
+  auth-user-service:
+    build:
+      context: .
+      dockerfile: docker/auth-user-service/Dockerfile
+    image: taskflow/auth-user-service:1.0.0
+    <<: *app-restart
+    environment:
+      <<: *app-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_user_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-root}
+    # 内部服务端口 8081,如需直连调试可放开下行
+    # ports: ["8081:8081"]
+    depends_on:
+      nacos:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-health-params
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081'"]
+
+  task-service:
+    build:
+      context: .
+      dockerfile: docker/task-service/Dockerfile
+    image: taskflow/task-service:1.0.0
+    <<: *app-restart
+    environment:
+      <<: *app-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/task_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      # 附件落盘:容器内固定目录,绑定宿主机 deploy/data/attachments(便于备份)
+      ATTACHMENT_ROOT: /taskflow/attachments
+    volumes:
+      - ./data/attachments:/taskflow/attachments
+    depends_on:
+      nacos:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-health-params
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8082'"]
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: docker/notification-service/Dockerfile
+    image: taskflow/notification-service:1.0.0
+    <<: *app-restart
+    environment:
+      <<: *app-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-root}
+      # SMTP 邮件(可选;不配/无 SMTP 不会阻断启动,超时快速失败进重试)
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-25}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-5000}
+      MAIL_FROM: ${MAIL_FROM:-taskflow@example.com}
+    depends_on:
+      nacos:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-health-params
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8083'"]
+
+  stats-service:
+    build:
+      context: .
+      dockerfile: docker/stats-service/Dockerfile
+    image: taskflow/stats-service:1.0.0
+    <<: *app-restart
+    environment:
+      <<: *app-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/stats_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-root}
+    depends_on:
+      nacos:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      <<: *java-health-params
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8084'"]
+
+# ============================================================
+# 前端(Nginx)
+# ============================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    image: taskflow/frontend:1.0.0
+    <<: *app-restart
+    ports:
+      - "8080:8080"                  # Web 入口
+    depends_on:
+      gateway-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+# ============================================================
+# 网络与卷
+# ============================================================
+networks:
+  taskflow-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitmqdata:
+
+# ============================================================
+# 可选:MySQL(本项目业务不使用,默认不启动)
+# ------------------------------------------------------------
+# 说明:1) TaskFlow 四个业务库均为 PostgreSQL,应用不使用 MySQL;
+#       2) Nacos v2.4.3 单机模式默认内置 Derby 存储,也不依赖 MySQL。
+# 若将来需要让 Nacos 使用 MySQL 存储(集群/生产),可取消注释并补充
+# Nacos 初始化 schema(nacos-docker 仓库 mysql-schema.sql),切勿直接照抄:
+#
+#   mysql:
+#     image: mysql:8.4
+#     restart: unless-stopped
+#     environment:
+#       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+#       MYSQL_DATABASE: nacos_config
+#     ports:
+#       - "3306:3306"
+#     volumes:
+#       - mysqldata:/var/lib/mysql
+#     networks: [taskflow-net]
+#     healthcheck:
+#       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p'${MYSQL_ROOT_PASSWORD:-root}'"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 12
+#       start_period: 20s
+#
+#   volumes:
+#     mysqldata:
+# ============================================================

@@ -40,3 +40,8 @@ taskflow:
     # 与各服务同一密钥（生产走环境变量 JWT_SECRET）
     secret: ${JWT_SECRET:taskflow-dev-secret-please-override}
     ttl: PT2H
+  ratelimit:
+    # 网关级 Redis 限流（PRD 7.3 / M6.4）：JWT/API Key 请求按 X-User-Id，匿名按来源 IP
+    enabled: true
+    user-per-minute: 300
+    ip-per-minute: 600

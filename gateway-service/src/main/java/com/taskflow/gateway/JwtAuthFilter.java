@@ -102,12 +102,18 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return reject(exchange, ErrorCode.TOKEN_INVALID);
         }
 
-        // 黑名单检查（登出/改密后旧令牌），通过则透传身份头
-        return redis.hasKey("auth:blacklist:" + token).flatMap(inBlacklist -> {
+        // 黑名单检查（登出/改密后旧令牌；M6 #4 键改为按令牌唯一 jti，
+        // 与 auth-user-service 拉黑口径一致；旧版无 jti 令牌回退整串）
+        String jti = claims.getId();
+        String blacklistKey = (jti != null && !jti.isBlank())
+                ? "auth:blacklist:" + jti : "auth:blacklist:" + token;
+        return redis.hasKey(blacklistKey).flatMap(inBlacklist -> {
             if (Boolean.TRUE.equals(inBlacklist)) {
                 return reject(exchange, ErrorCode.TOKEN_INVALID);
             }
+            // M6 #1：X-Task-Source 只许由网关 OpenAPI 链路注入，JWT 请求一律剥离防伪造
             ServerHttpRequest mutated = exchange.getRequest().mutate()
+                    .headers(h -> h.remove("X-Task-Source"))
                     .header("X-User-Id", String.valueOf(jwtUtils.getUserId(claims)))
                     .header("X-Role-Key", jwtUtils.getRoleKey(claims))
                     .build();

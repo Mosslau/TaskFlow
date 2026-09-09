@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.taskflow</groupId>
+        <artifactId>taskflow-parent</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>acceptance-tests</artifactId>
+    <packaging>jar</packaging>
+    <name>TaskFlow M6.1 验收测试</name>
+    <description>PRD 第 10 章 16 条验收条件的 REST Assured 集成测试（网关 8000 全链路）</description>
+
+    <properties>
+        <rest-assured.version>5.4.0</rest-assured.version>
+        <junit.version>5.10.2</junit.version>
+        <poi.version>5.2.5</poi.version>
+        <postgresql.version>42.7.3</postgresql.version>
+        <jedis.version>5.1.0</jedis.version>
+        <jackson.version>2.17.2</jackson.version>
+    </properties>
+
+    <dependencies>
+        <!-- JUnit 5 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- REST Assured -->
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${rest-assured.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- JSON 树模型解析 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Excel 导入用例：生成/改写 .xlsx（基于导入模板） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- PostgreSQL JDBC：白盒数据校验 / SQL 预造 / 清理 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Jedis：auth:lock Redis 键校验 -->
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>${jedis.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <!-- 16 条验收条件 + 定时任务两个类默认全部执行；
+                         定时任务相关两个类需要 cron 已临时缩短(见模块 README) -->
+                    <trimStackTrace>false</trimStackTrace>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

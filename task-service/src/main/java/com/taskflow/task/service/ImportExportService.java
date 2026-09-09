@@ -269,9 +269,10 @@ public class ImportExportService {
         }
 
         // ④ 单事务逐行创建（TaskService.create 为 REQUIRED，加入本事务；任一行失败整体回滚）
+        // M6 #1：来源渠道落"Excel 导入"（不再走 create 默认"网页"）
         for (ParsedRow row : rows) {
             taskService.create(row.title, row.description, row.taskType, row.priority,
-                    row.assigneeId, row.dueAt, null);
+                    row.assigneeId, row.dueAt, null, TaskService.SOURCE_EXCEL_IMPORT);
         }
 
         // ⑤ 成功批次落库（同事务，随任务一起提交）
