@@ -287,13 +287,13 @@ async function handleReadAll() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid #E8ECF1;
 }
 .n-head-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .n-title {
   font-size: 15px;
@@ -313,12 +313,13 @@ async function handleReadAll() {
 .n-head-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .n-body {
   max-height: 440px;
   min-height: 120px;
   overflow-y: auto;
+  padding: 6px 0;
 }
 .n-loading-placeholder {
   height: 120px;
@@ -383,7 +384,7 @@ async function handleReadAll() {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 13px 16px;
+  padding: 14px 20px;
   cursor: pointer;
   transition: background-color 120ms ease-out;
 }
@@ -399,8 +400,8 @@ async function handleReadAll() {
 }
 .n-icon {
   flex: none;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -414,7 +415,7 @@ async function handleReadAll() {
 .n-summary {
   font-size: 13px;
   color: #5E6D82;
-  line-height: 1.55;
+  line-height: 1.6;
   /* 最多两行，超长省略，避免长文案把面板撑乱 */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -426,7 +427,7 @@ async function handleReadAll() {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 12px;
 }
 .n-type {
@@ -458,7 +459,7 @@ async function handleReadAll() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 16px;
+  padding: 12px 20px;
   border-top: 1px solid #E8ECF1;
   font-size: 12px;
   color: #8A97A8;
