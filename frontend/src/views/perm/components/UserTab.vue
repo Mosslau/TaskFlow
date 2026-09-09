@@ -299,9 +299,9 @@ async function handleResetPassword(row: UserItem) {
         <template #default="{ row }">
           <!-- 操作列：编辑 + 更多下拉（参考任务列表，避免按钮过多溢出卡片） -->
           <div class="row-ops">
-            <span class="op-link" @click="openEdit(row)">编辑</span>
+            <span class="tf-op-link" @click="openEdit(row)">编辑</span>
             <el-dropdown trigger="click">
-              <span class="op-link">
+              <span class="tf-op-link">
                 更多
                 <svg
                   class="caret-icon"
@@ -443,22 +443,7 @@ async function handleResetPassword(row: UserItem) {
 :deep(.el-table__row:hover) .row-ops {
   opacity: 1;
 }
-.op-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  line-height: 22px;
-  color: #0E7C86;
-  cursor: pointer;
-  user-select: none;
-}
-.op-link:hover {
-  color: #0A5F67;
-}
-.op-link .caret-icon {
-  flex: none;
-}
+
 .empty-tip {
   color: #8A97A8;
   font-size: 13px;

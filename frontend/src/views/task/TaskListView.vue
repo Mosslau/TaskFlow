@@ -438,18 +438,12 @@ function handleChanged() {
     <!-- 筛选栏（白卡） -->
     <div class="tf-card filter-bar">
       <div class="filter-row">
-        <div class="segmented">
-          <button
-            v-for="tab in scopeTabs"
-            :key="tab.value"
-            type="button"
-            class="seg"
-            :class="{ active: filters.scope === tab.value }"
-            @click="filters.scope = tab.value; handleFilterChange()"
-          >
+        <!-- 范围分段：Element 标准控件（与统计/通知页一致，全站无自绘分段） -->
+        <el-radio-group v-model="filters.scope" @change="handleFilterChange">
+          <el-radio-button v-for="tab in scopeTabs" :key="tab.value" :value="tab.value">
             {{ tab.label }}
-          </button>
-        </div>
+          </el-radio-button>
+        </el-radio-group>
       </div>
       <div class="filter-row">
         <el-input
@@ -623,9 +617,9 @@ function handleChanged() {
             }}</span>
             <!-- 操作列：详情 + 更多下拉（纯文字链，不用按钮，保证字号与基线对齐） -->
             <div v-else-if="col.key === 'ops'" class="row-ops">
-              <span class="op-link" @click="openDetail(row)">详情</span>
+              <span class="tf-op-link" @click="openDetail(row)">详情</span>
               <el-dropdown v-if="hasRowMoreActions" trigger="click">
-                <span class="op-link">
+                <span class="tf-op-link">
                   更多
                   <svg
                     class="caret-icon"
@@ -858,36 +852,6 @@ function handleChanged() {
   height: 30px;
 }
 
-/* 范围分段控件 */
-.segmented {
-  display: inline-flex;
-  background: #F6F7F9;
-  border: 1px solid #D8DEE6;
-  border-radius: 6px;
-  padding: 2px;
-}
-.segmented .seg {
-  height: 28px;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  font-size: 13px;
-  color: #5E6D82;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
-  transition: color 120ms ease-out;
-}
-.segmented .seg:hover {
-  color: #1F2D3D;
-}
-.segmented .seg.active {
-  background: #0E7C86;
-  color: #FFFFFF;
-}
-
 /* 表格单元格元素 */
 .col-no {
   color: #5E6D82;
@@ -976,23 +940,7 @@ function handleChanged() {
 :deep(.el-table__row:hover) .row-ops {
   opacity: 1;
 }
-/* 操作文字链：统一字号与基线（不用 el-button，避免 link 按钮与下拉按钮默认样式错位） */
-.op-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  line-height: 22px;
-  color: #0E7C86;
-  cursor: pointer;
-  user-select: none;
-}
-.op-link:hover {
-  color: #0A5F67;
-}
-.op-link .caret-icon {
-  flex: none;
-}
+
 
 /* 分页右下 */
 .pager {

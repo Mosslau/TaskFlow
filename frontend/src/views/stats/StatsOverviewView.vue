@@ -517,7 +517,8 @@ const loadEmpty = computed(() => (overview.value?.assigneeLoad.length ?? 0) === 
 .page-title {
   font-size: 20px;
   font-weight: 600;
-  color: #1F2D3D;
+  /* 页面标题统一深墨 #12242E（与任务/日历页一致，UI 走查 B1） */
+  color: #12242E;
   margin: 0;
 }
 .range-ctl {

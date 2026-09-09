@@ -49,6 +49,25 @@
   vertical-align: middle;
 }
 
+/* 表格行内操作文字链（全站统一：任务/权限等页共用，勿在各页重复定义） */
+.tf-op-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 22px;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.tf-op-link:hover {
+  color: var(--el-color-primary-dark-2);
+}
+.tf-op-link .caret-icon {
+  flex: none;
+}
+
 /* 表格行高 48px（UI 设计规范 5.2） */
 .el-table .el-table__row {
   height: 48px;
