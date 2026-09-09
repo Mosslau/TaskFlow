@@ -22,9 +22,12 @@ import java.util.stream.Stream;
  * <p>消费 task.events 交换机的 8 类事件：先按 eventId 幂等去重（processed_event），
  * 再生成站内消息 + 发邮件（task.commented 仅站内）。</p>
  *
- * <p>失败策略（开发态取舍）：消息体解析失败或分发异常记日志后吞掉
- * （不再重投，避免毒消息死循环）；投递可靠性靠生产端 outbox 重投，
- * 消费端失败告警可后续接死信队列完善。</p>
+ * <p>失败策略（#2 通知侧）：JSON 解析失败（无法回放的毒消息）记 ERROR 后丢弃；
+ * 其余失败（幂等登记异常 / 分发异常）不再吞掉，抛给容器——容器
+ * defaultRequeueRejected=false 拒收不重投，消息按主队列死信参数落入 DLQ
+ * （notification.task.events.dlq，另设消费者记 ERROR 供人工介入排障）。
+ * 因 processed_event 先登记（幂等）再分发，死信事件即使将来重放也会被幂等跳过，
+ * 通知不会重复，死信仅用于排障。</p>
  */
 @Component
 public class NotificationEventConsumer {
@@ -67,13 +70,14 @@ public class NotificationEventConsumer {
     private record Plan(List<Long> recipients, String summary) {
     }
 
-    @RabbitListener(queues = RabbitConfig.QUEUE)
+    @RabbitListener(queues = RabbitConfig.QUEUE, containerFactory = "rabbitListenerContainerFactory")
     public void onEvent(String body) {
         TaskEvents.TaskEvent event;
         try {
             event = objectMapper.readValue(body, TaskEvents.TaskEvent.class);
         } catch (Exception e) {
-            log.error("事件反序列化失败，丢弃: {}", body, e);
+            // 毒消息（无法回放）：直接丢弃记日志，不走死信（死信无法被幂等兜底也无意义）
+            log.error("事件反序列化失败，丢弃: {}", abbreviate(body, 400), e);
             return;
         }
         // 幂等去重：生产者 at-least-once，重复投递直接跳过（架构文档第 5 章）
@@ -82,11 +86,18 @@ public class NotificationEventConsumer {
             return;
         }
         log.info("消费事件: type={}, id={}", event.eventType(), event.eventId());
-        try {
-            dispatch(event);
-        } catch (Exception e) {
-            log.error("事件处理失败: type={}, id={}", event.eventType(), event.eventId(), e);
-        }
+        // 分发异常不再吞掉：抛给容器，defaultRequeueRejected=false 拒收不重投，
+        // 按主队列死信参数落 DLQ（重放会被上方幂等登记跳过，通知不重复）
+        dispatch(event);
+    }
+
+    /**
+     * 死信队列消费者（人工介入排障）：主队列处理失败的合法消息经 DLX 路由至此。
+     * 只记 ERROR（含消息体摘要）；不回放——即使重放也会被 processed_event 幂等跳过。
+     */
+    @RabbitListener(queues = RabbitConfig.DLQ, containerFactory = "rabbitListenerContainerFactory")
+    public void onDeadLetter(String body) {
+        log.error("收到死信消息（人工介入排障，重放会被幂等跳过）: body={}", abbreviate(body, 1000));
     }
 
     /** 按事件类型分发：写站内消息 + 发邮件（task.commented 仅站内） */
@@ -197,5 +208,13 @@ public class NotificationEventConsumer {
     private String emailOf(Map<Long, Map<String, Object>> cache, Long id) {
         Map<String, Object> u = userOf(cache, id);
         return u == null ? null : (String) u.get("email");
+    }
+
+    /** 日志用消息体摘要（超长截断，防止毒消息把日志刷爆） */
+    private static String abbreviate(String s, int max) {
+        if (s == null) {
+            return "null";
+        }
+        return s.length() <= max ? s : s.substring(0, max) + "...(truncated,len=" + s.length() + ")";
     }
 }
