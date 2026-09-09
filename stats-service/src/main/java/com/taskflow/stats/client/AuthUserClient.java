@@ -21,4 +21,13 @@ public interface AuthUserClient {
      */
     @GetMapping("/users/lookup")
     Map<String, Object> lookup(@RequestParam(value = "roleKey", required = false) String roleKey);
+
+    /**
+     * 单角色权限点（权限缓存未命中时回源——M5 缺陷修复）。
+     *
+     * @param roleKey 角色键
+     * @return 信封包裹的 {roleKey, permissions: [...]}
+     */
+    @GetMapping("/permissions/roles/{roleKey}")
+    Map<String, Object> getRolePermissions(@org.springframework.web.bind.annotation.PathVariable("roleKey") String roleKey);
 }

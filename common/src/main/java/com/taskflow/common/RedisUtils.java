@@ -44,6 +44,18 @@ public class RedisUtils {
     }
 
     /**
+     * 写值（不过期）。仅用于「有主动失效机制兜底」的缓存，
+     * 如权限点缓存 auth:perms:{roleKey}（矩阵变更时 auth 侧主动 delete，
+     * TTL 过期只会造成下游误判——M5 缺陷修复）。
+     *
+     * @param key   键
+     * @param value 值
+     */
+    public void set(String key, String value) {
+        redis.opsForValue().set(key, value);
+    }
+
+    /**
      * 读值。
      *
      * @param key 键

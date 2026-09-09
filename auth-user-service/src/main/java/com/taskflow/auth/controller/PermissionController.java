@@ -5,6 +5,7 @@ import com.taskflow.auth.config.RequirePerm;
 import com.taskflow.auth.service.PermissionService;
 import com.taskflow.common.Result;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +26,19 @@ public class PermissionController {
 
     public PermissionController(PermissionService permissionService) {
         this.permissionService = permissionService;
+    }
+
+    /**
+     * 单角色权限点查询（登录即可；下游服务权限缓存未命中时回源用——M5 缺陷修复）。
+     *
+     * @param roleKey 角色键
+     * @return { roleKey, permissions: [权限点...] }
+     */
+    @GetMapping("/roles/{roleKey}")
+    public Result<Map<String, Object>> rolePermissions(@PathVariable String roleKey) {
+        return Result.ok(Map.of(
+                "roleKey", roleKey,
+                "permissions", permissionService.getEnabledPermissions(roleKey)));
     }
 
     /**

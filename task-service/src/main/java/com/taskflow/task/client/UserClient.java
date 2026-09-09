@@ -33,4 +33,13 @@ public interface UserClient {
     @GetMapping("/users/lookup")
     Map<String, Object> lookup(@org.springframework.web.bind.annotation.RequestParam(required = false) String keyword,
                                @org.springframework.web.bind.annotation.RequestParam(required = false) Long departmentId);
+
+    /**
+     * 单角色权限点（权限缓存未命中时回源——M5 缺陷修复）。
+     *
+     * @param roleKey 角色键
+     * @return 信封包裹的 {roleKey, permissions: [...]}
+     */
+    @GetMapping("/permissions/roles/{roleKey}")
+    Map<String, Object> getRolePermissions(@PathVariable("roleKey") String roleKey);
 }

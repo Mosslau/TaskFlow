@@ -14,7 +14,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +34,6 @@ import java.util.stream.Collectors;
 public class PermissionService {
 
     private static final Logger log = LoggerFactory.getLogger(PermissionService.class);
-
-    /** 缓存 10 分钟兜底过期（正常靠主动失效，TTL 防缓存永久残留） */
-    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
     /** 14 个权限点目录（PRD 3.2）：key / 名称 / 分组 */
     public static final List<Map<String, String>> PERMISSION_CATALOG = List.of(
@@ -91,8 +87,10 @@ public class PermissionService {
                                 .eq(RolePermission::getRoleId, role.getId())
                                 .eq(RolePermission::getEnabled, true))
                 .stream().map(RolePermission::getPermissionKey).collect(Collectors.toSet());
-        // 空集合缓存为空串，防止缓存穿透反复查库
-        redis.set(cacheKey, String.join(",", perms), CACHE_TTL);
+        // 空集合缓存为空串，防止缓存穿透反复查库。
+        // 缓存持久保存（不设 TTL）：一致性靠主动失效（矩阵变更 delete）+ 启动预热 + 下游回源；
+        // 历史教训——10 分钟 TTL 过期后下游全部误判 3001（M5 缺陷修复）。
+        redis.set(cacheKey, String.join(",", perms));
         return perms;
     }
 
