@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
@@ -578,7 +580,9 @@ public class TaskService {
             writeOutbox(TaskEvents.TASK_TRANSFERRED, Map.of(
                     "taskId", task.getId(), "taskNo", task.getTaskNo(),
                     "oldAssigneeId", old, "newAssigneeId", newAssignee,
-                    "operatorId", AuthContext.getUserId()));
+                    "operatorId", AuthContext.getUserId(),
+                    // #3 task 侧：转派不改变状态，载荷补 status（字段只增不改）
+                    "status", task.getStatus()));
         }
         task.setUpdatedAt(OffsetDateTime.now());
         taskMapper.updateById(task);
@@ -591,6 +595,9 @@ public class TaskService {
      * <p>M6 修复 #3：task_comment / task_attachment 对 task 的 FK 无级联，
      * 删除前先清从属资源（评论 + 附件 + 时间线），附件落盘文件一并删除（失败仅告警），
      * 全程同一事务。</p>
+     *
+     * <p>删除成功后经 Feign 写审计日志（action=task.delete，PRD 4.1.2：删除留痕）：
+     * 登记在事务提交后执行（先删库成功 → 再写审计），Feign 失败只记 warn，绝不影响删除结果。</p>
      */
     @Transactional
     public void delete(Long id) {
@@ -599,6 +606,7 @@ public class TaskService {
         if (!ST_NEW.equals(task.getStatus())) {
             throw new BizException(ErrorCode.DELETE_ONLY_TODO);
         }
+        Long operatorId = AuthContext.getUserId();
         // ① 附件：先取落盘文件名（删记录前留档），再删记录
         List<TaskAttachment> attachments = attachmentMapper.selectList(
                 new LambdaQueryWrapper<TaskAttachment>().eq(TaskAttachment::getTaskId, id));
@@ -613,8 +621,49 @@ public class TaskService {
             deleteAttachmentFile(att.getStoredName());
         }
         log.info("任务删除: taskNo={}, operator={}（评论/附件/时间线已随删）",
-                task.getTaskNo(), AuthContext.getUserId());
-        // 审计日志经 Feign 写 auth-user-service（M2 简化：删除留痕在本服务日志 + 后续里程碑接审计接口）
+                task.getTaskNo(), operatorId);
+        // ⑤ 审计日志：事务提交后再经 Feign 调 auth-user-service 内部接口
+        //    POST /auth/api/v1/audit-logs（身份头由 FeignConfig 透传，operator 即删除人）。
+        //    Feign 调用失败仅 warn——删除已成功，审计缺失不导致回滚。
+        Runnable auditWrite = () -> writeDeleteAudit(task.getTaskNo(), task.getTitle(), operatorId);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    auditWrite.run();
+                }
+            });
+        } else {
+            // 无事务上下文（理论不发生：本方法恒在 @Transactional 内）：直接调用
+            auditWrite.run();
+        }
+    }
+
+    /**
+     * 删除任务审计写入（auth-user-service 内部接口 POST /auth/api/v1/audit-logs，登录即可）。
+     *
+     * <p>changeDetail 为 {taskNo, title, operatorId} 的 JSON 字符串（DB 列为 jsonb）。
+     * 调用失败只记 warn——删除已完成，审计缺失由本服务日志兜底，不影响删除结果。</p>
+     */
+    private void writeDeleteAudit(String taskNo, String title, Long operatorId) {
+        String changeDetail;
+        try {
+            changeDetail = objectMapper.writeValueAsString(Map.of(
+                    "taskNo", taskNo == null ? "" : taskNo,
+                    "title", title == null ? "" : title,
+                    "operatorId", operatorId));
+        } catch (JsonProcessingException e) {
+            log.warn("任务删除审计载荷序列化失败，跳过审计写入: taskNo={}, err={}", taskNo, e.getMessage());
+            return;
+        }
+        try {
+            userClient.writeAuditLog(Map.of("action", "task.delete", "changeDetail", changeDetail));
+            log.info("任务删除审计已写入: action=task.delete, taskNo={}, operator={}", taskNo, operatorId);
+        } catch (Exception e) {
+            // 审计失败不回滚删除：删除已提交，仅告警留痕于本服务日志
+            log.warn("任务删除审计写入失败（不影响删除结果）: taskNo={}, operator={}, err={}",
+                    taskNo, operatorId, e.getMessage());
+        }
     }
 
     /**
@@ -754,7 +803,9 @@ public class TaskService {
         timeline(task.getId(), me, "转派", note);
         writeOutbox(TaskEvents.TASK_TRANSFERRED, Map.of(
                 "taskId", task.getId(), "taskNo", task.getTaskNo(),
-                "oldAssigneeId", old, "newAssigneeId", newAssigneeId, "operatorId", me));
+                "oldAssigneeId", old, "newAssigneeId", newAssigneeId, "operatorId", me,
+                // #3 task 侧：转派不改变状态，载荷补 status（字段只增不改）
+                "status", task.getStatus()));
         return task;
     }
 

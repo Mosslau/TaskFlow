@@ -3,6 +3,8 @@ package com.taskflow.task.client;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Map;
 
@@ -42,4 +44,14 @@ public interface UserClient {
      */
     @GetMapping("/permissions/roles/{roleKey}")
     Map<String, Object> getRolePermissions(@PathVariable("roleKey") String roleKey);
+
+    /**
+     * 写审计日志（auth-user-service 内部接口 POST /auth/api/v1/audit-logs，登录即可；
+     * AuditLogController 注释即标明供 task-service 删除任务留痕，PRD 4.1.2）。
+     *
+     * @param body {action, changeDetail}（changeDetail 为 JSON 字符串）
+     * @return 信封包裹的响应（成功 data 为 null）
+     */
+    @PostMapping("/audit-logs")
+    Map<String, Object> writeAuditLog(@RequestBody Map<String, String> body);
 }

@@ -80,8 +80,11 @@ public class TaskMaintenanceJobs {
     // ==================== 1. 到期前 24h 提醒（每小时；每任务仅一次，PRD 4.6.1） ====================
 
     /**
-     * 扫描 status ∈ (new,doing,wait) 且 due_at ≤ now+24h 且 due_reminded=false 的任务（含子任务），
-     * 置 due_reminded=true 并发 task.due.soon（通知处理人）。
+     * 扫描 status ∈ (new,doing,wait) 且 now &lt; due_at ≤ now+24h 且 due_reminded=false 的任务
+     * （含子任务），置 due_reminded=true 并发 task.due.soon（通知处理人）。
+     *
+     * <p>#7：只提醒"即将到期"——已逾期任务（due_at ≤ now）不在到期提醒范围，
+     * 统一交给 overdueScan 管，避免用户收到"即将到期"的过时提醒。</p>
      */
     @Scheduled(cron = "0 0 * * * *", zone = "Asia/Shanghai")
     @Transactional
@@ -94,6 +97,7 @@ public class TaskMaintenanceJobs {
         List<Task> due = taskMapper.selectList(new LambdaQueryWrapper<Task>()
                 .in(Task::getStatus, ACTIVE_STATUSES)
                 .isNotNull(Task::getDueAt)
+                .gt(Task::getDueAt, now)
                 .le(Task::getDueAt, now.plusHours(24))
                 .and(w -> w.eq(Task::getDueReminded, false).or().isNull(Task::getDueReminded)));
         int reminded = 0;
