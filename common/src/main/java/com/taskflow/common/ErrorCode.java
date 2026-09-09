@@ -76,6 +76,9 @@ public enum ErrorCode {
     /** Excel 导入校验失败整批拒绝；details 携带逐行错误 [{row, reason}]（PRD 4.7） */
     IMPORT_VALIDATION_FAILED(2012, "导入校验失败，整批未入库", 400),
 
+    /** 删除任务存在未删除子任务（先删子任务；父任务 FK 约束，PRD 4.1.2 删除语义补充） */
+    HAS_SUBTASKS(2013, "存在子任务，请先删除子任务", 400),
+
     // ========== 权限 3xxx ==========
 
     /** 缺少权限点；details 携带 {required, roleKey}（PRD 3.5.2 拒绝原因提示） */

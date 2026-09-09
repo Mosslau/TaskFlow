@@ -606,6 +606,10 @@ public class TaskService {
         if (!ST_NEW.equals(task.getStatus())) {
             throw new BizException(ErrorCode.DELETE_ONLY_TODO);
         }
+        // 存在未删除子任务时拒绝（子任务外键 parent_id → task(id) 无级联；须先删子任务）
+        if (taskMapper.selectCount(new LambdaQueryWrapper<Task>().eq(Task::getParentId, id)) > 0) {
+            throw new BizException(ErrorCode.HAS_SUBTASKS);
+        }
         Long operatorId = AuthContext.getUserId();
         // ① 附件：先取落盘文件名（删记录前留档），再删记录
         List<TaskAttachment> attachments = attachmentMapper.selectList(
