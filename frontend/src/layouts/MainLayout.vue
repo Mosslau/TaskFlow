@@ -29,7 +29,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { key: 'tasks', title: '任务列表', path: '/tasks', perm: '', ready: true },
   { key: 'stats', title: '统计总览', path: '/stats', perm: 'viewStats', ready: true },
-  { key: 'calendar', title: '日程', path: '/calendar', perm: '', ready: true },
+  { key: 'calendar', title: '日程管理', path: '/calendar', perm: '', ready: true },
   { key: 'notice', title: '通知中心', path: '/notifications', perm: '', ready: true },
   { key: 'perm', title: '权限管理', path: '/perm', perm: 'manageUser', ready: true },
 ]

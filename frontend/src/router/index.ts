@@ -24,7 +24,7 @@ const router = createRouter({
           path: 'calendar',
           name: 'calendar',
           component: () => import('../views/calendar/TaskCalendarView.vue'),
-          meta: { title: '日程' },
+          meta: { title: '日程管理' },
         },
         {
           path: 'perm',

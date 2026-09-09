@@ -209,7 +209,7 @@ function handleCreateSubtask(task: { id: number }) {
     <!-- 页面标题行 -->
     <div class="page-head">
       <div class="page-title">
-        <h1>日程</h1>
+        <h1>日程管理</h1>
         <p>按任务「到期时间」排布的月历视图，点击任务可打开详情。</p>
       </div>
     </div>
