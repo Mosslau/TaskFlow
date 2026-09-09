@@ -28,6 +28,11 @@ spring:
     port: 5672
     username: guest
     password: guest
+  servlet:
+    multipart:
+      # 附件上传容器上限（PRD 4.1.6：单文件 ≤ 20MB；超限由 AttachmentExceptionHandler 转 2008）
+      max-file-size: 20MB
+      max-request-size: 25MB
 
 mybatis-plus:
   configuration:

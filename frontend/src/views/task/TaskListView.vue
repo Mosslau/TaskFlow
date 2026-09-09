@@ -7,6 +7,7 @@ import {
   TASK_STATUS_OPTIONS,
   TASK_TYPES,
   createTaskApi,
+  exportTasksCsv,
   fetchTasksApi,
   isTaskOverdue,
   priorityStyleOf,
@@ -23,6 +24,7 @@ import { useUserStore } from '../../stores/user'
 import { useTaskUserOptions } from '../../composables/useTaskUserOptions'
 import TaskActionDialogs from '../../components/TaskActionDialogs.vue'
 import TaskDetailDrawer from '../../components/TaskDetailDrawer.vue'
+import TaskImportDialog from '../../components/TaskImportDialog.vue'
 
 /**
  * 任务列表页（M2）：筛选栏（关键字 / 状态 / 优先级 / 类型 / 创建人 / 处理人 / 处理人部门 / 范围分段）
@@ -319,6 +321,33 @@ async function submitCreate() {
   }
 }
 
+// ---------- 导出 / 导入（M4；导出权限点 exportData，导入权限点 create） ----------
+const exporting = shallowRef(false)
+
+/** 导出 CSV：按当前筛选条件（不含分页），fetch 带 Authorization → blob 下载 */
+async function handleExport() {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    await exportTasksCsv({ ...buildFilterParams(), topLevel: true })
+  } catch (error) {
+    ElMessage.error(resolveApiError(error).message)
+  } finally {
+    exporting.value = false
+  }
+}
+
+const importDialogRef = useTemplateRef<InstanceType<typeof TaskImportDialog>>('importDialogRef')
+
+function openImport() {
+  importDialogRef.value?.open()
+}
+
+/** 导入成功后刷新列表 */
+function handleImported() {
+  handleFilterChange()
+}
+
 // ---------- 行内操作 ----------
 /** 已完成 / 已归档任务锁定优先级、到期、转派操作（原型为禁用灰） */
 function opsLocked(row: TaskItem): boolean {
@@ -390,11 +419,10 @@ function handleChanged() {
         <p>查看与管理团队全部任务，支持按状态、优先级、成员等维度筛选。</p>
       </div>
       <div class="page-actions">
-        <el-tooltip content="后续里程碑开放" placement="bottom">
-          <span>
-            <el-button v-perm="'exportData'" disabled>导出 CSV</el-button>
-          </span>
-        </el-tooltip>
+        <el-button v-perm="'create'" @click="openImport">导入</el-button>
+        <el-button v-perm="'exportData'" :loading="exporting" @click="handleExport">
+          导出 CSV
+        </el-button>
         <el-button v-perm="'create'" type="primary" @click="openCreate">＋ 新建任务</el-button>
       </div>
     </div>
@@ -740,6 +768,9 @@ function handleChanged() {
       :user-options="userOptions"
       @changed="handleChanged"
     />
+
+    <!-- 批量导入弹窗（M4） -->
+    <TaskImportDialog ref="importDialogRef" @imported="handleImported" />
 
     <!-- 任务详情抽屉 -->
     <TaskDetailDrawer

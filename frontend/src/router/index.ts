@@ -21,12 +21,18 @@ const router = createRouter({
           meta: { title: '任务列表' },
         },
         {
+          path: 'calendar',
+          name: 'calendar',
+          component: () => import('../views/calendar/TaskCalendarView.vue'),
+          meta: { title: '日程' },
+        },
+        {
           path: 'perm',
           name: 'perm',
           component: () => import('../views/perm/PermView.vue'),
           meta: { title: '权限管理' },
         },
-        // 统计总览 / 日程 / 通知中心：后续里程碑接入
+        // 统计总览 / 通知中心：后续里程碑接入
       ],
     },
   ],

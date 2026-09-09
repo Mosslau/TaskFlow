@@ -8,6 +8,7 @@ import com.taskflow.task.client.UserClient;
 import com.taskflow.task.config.AuthContext;
 import com.taskflow.task.entity.Task;
 import com.taskflow.task.mapper.EventOutboxMapper;
+import com.taskflow.task.mapper.TaskAttachmentMapper;
 import com.taskflow.task.mapper.TaskMapper;
 import com.taskflow.task.mapper.TaskTimelineMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -42,6 +43,8 @@ class TaskServiceTest {
     @Mock
     private EventOutboxMapper outboxMapper;
     @Mock
+    private TaskAttachmentMapper attachmentMapper;
+    @Mock
     private UserClient userClient;
     @Mock
     private RedisUtils redis;
@@ -50,7 +53,7 @@ class TaskServiceTest {
 
     @BeforeEach
     void setUp() {
-        taskService = new TaskService(taskMapper, timelineMapper, outboxMapper, userClient, redis);
+        taskService = new TaskService(taskMapper, timelineMapper, outboxMapper, attachmentMapper, userClient, redis);
     }
 
     @AfterEach

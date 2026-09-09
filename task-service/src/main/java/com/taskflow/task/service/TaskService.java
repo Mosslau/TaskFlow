@@ -13,8 +13,10 @@ import com.taskflow.task.client.UserClient;
 import com.taskflow.task.config.AuthContext;
 import com.taskflow.task.entity.EventOutbox;
 import com.taskflow.task.entity.Task;
+import com.taskflow.task.entity.TaskAttachment;
 import com.taskflow.task.entity.TaskTimeline;
 import com.taskflow.task.mapper.EventOutboxMapper;
+import com.taskflow.task.mapper.TaskAttachmentMapper;
 import com.taskflow.task.mapper.TaskMapper;
 import com.taskflow.task.mapper.TaskTimelineMapper;
 import org.slf4j.Logger;
@@ -63,16 +65,19 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final TaskTimelineMapper timelineMapper;
     private final EventOutboxMapper outboxMapper;
+    private final TaskAttachmentMapper attachmentMapper;
     private final UserClient userClient;
     private final RedisUtils redis;
     // 注册 JavaTimeModule：事件信封的 occurredAt 是 Instant（M3 事件契约）
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     public TaskService(TaskMapper taskMapper, TaskTimelineMapper timelineMapper,
-                       EventOutboxMapper outboxMapper, UserClient userClient, RedisUtils redis) {
+                       EventOutboxMapper outboxMapper, TaskAttachmentMapper attachmentMapper,
+                       UserClient userClient, RedisUtils redis) {
         this.taskMapper = taskMapper;
         this.timelineMapper = timelineMapper;
         this.outboxMapper = outboxMapper;
+        this.attachmentMapper = attachmentMapper;
         this.userClient = userClient;
         this.redis = redis;
     }
@@ -407,7 +412,7 @@ public class TaskService {
     }
 
     /**
-     * 任务详情（接口 #21）：可见性校验 + 时间线倒序 + 姓名解析。
+     * 任务详情（接口 #21）：可见性校验 + 时间线倒序 + 姓名解析 + 附件列表（M4 契约）。
      */
     public Map<String, Object> detail(Long id) {
         Task task = mustVisible(id);
@@ -432,8 +437,23 @@ public class TaskService {
                                 .orderByAsc(Task::getCreatedAt))
                 .stream().map(st -> toItem(st, snapshot))
                 .collect(java.util.stream.Collectors.toList());
+        // 附件列表（PRD 4.1.6；前端按 attachments 契约渲染，字段子集与附件列表一致）
+        List<Map<String, Object>> attachmentItems = attachmentMapper.selectList(
+                        new LambdaQueryWrapper<TaskAttachment>()
+                                .eq(TaskAttachment::getTaskId, id)
+                                .orderByAsc(TaskAttachment::getCreatedAt))
+                .stream().map(att -> {
+                    Map<String, Object> item = new HashMap<String, Object>();
+                    item.put("id", att.getId());
+                    item.put("originalName", att.getOriginalName());
+                    item.put("sizeBytes", att.getSizeBytes());
+                    item.put("uploaderId", att.getUploaderId());
+                    item.put("createdAt", att.getCreatedAt() == null ? null : att.getCreatedAt().toString());
+                    return item;
+                }).collect(java.util.stream.Collectors.toList());
         return Map.of("task", toItem(task, snapshot),
-                "timeline", timelineItems, "subtasks", subtaskItems);
+                "timeline", timelineItems, "subtasks", subtaskItems,
+                "attachments", attachmentItems);
     }
 
     // ==================== 编辑与删除 ====================
@@ -775,5 +795,56 @@ public class TaskService {
         }
         outbox.setDelivered(false);
         outboxMapper.insert(outbox);
+    }
+
+    // ==================== M4 从属资源复用的公开入口（只增不改） ====================
+
+    /**
+     * 可见性校验公开入口：评论 / 附件等"任务可见即可"的从属资源复用，
+     * 规则与 {@link #mustVisible} 完全一致（不可见统一抛 2001，防探测）。
+     *
+     * @param taskId 任务 id
+     * @return 可见的任务实体
+     */
+    public Task requireVisible(Long taskId) {
+        return mustVisible(taskId);
+    }
+
+    /**
+     * 领域事件 outbox 公开入口：评论事件等从属资源复用（与业务同库事务，架构 4.2）。
+     *
+     * @param eventType 事件类型（TaskEvents 常量）
+     * @param payload   业务载荷
+     */
+    public void emitEvent(String eventType, Map<String, Object> payload) {
+        writeOutbox(eventType, payload);
+    }
+
+    /**
+     * 可见性过滤条件应用到查询包装器（日程聚合等列表查询复用，规则同 page() ①，PRD 3.4）：
+     * admin / viewAll 不加条件；否则（有 viewAssigned 且是处理人）或（有 editOwn 且是创建人）。
+     *
+     * @param qw 待追加可见性条件的查询包装器
+     */
+    public void applyVisibility(LambdaQueryWrapper<Task> qw) {
+        if (canViewAll()) {
+            return;
+        }
+        Long me = AuthContext.getUserId();
+        Set<String> perms = currentPerms();
+        boolean canSeeAssigned = perms.contains("viewAssigned");
+        boolean canSeeOwn = perms.contains("editOwn");
+        if (!canSeeAssigned && !canSeeOwn) {
+            qw.eq(Task::getId, -1L); // 两个可见性权限都没有：结果恒空
+        } else {
+            qw.and(w -> {
+                if (canSeeAssigned) {
+                    w.eq(Task::getAssigneeId, me);
+                }
+                if (canSeeOwn) {
+                    w.or().eq(Task::getCreatorId, me);
+                }
+            });
+        }
     }
 }

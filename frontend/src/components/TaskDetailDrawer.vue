@@ -16,19 +16,23 @@ import {
   type TaskDetail,
   type TaskItem,
   type TimelineItem,
+  type TaskAttachment,
 } from '../api/task'
 import { resolveApiError } from '../api/auth'
 import { formatDateTime } from '../utils/format'
 import { useUserStore } from '../stores/user'
 import { useTaskUserOptions } from '../composables/useTaskUserOptions'
 import TaskActionDialogs from './TaskActionDialogs.vue'
+import TaskCommentSection from './TaskCommentSection.vue'
+import TaskAttachmentSection from './TaskAttachmentSection.vue'
 
 /**
  * 任务详情抽屉（UI 设计规范 5.4，原型 docs/ui/任务详情抽屉.html）：
- * 墨青标题栏 → 操作按钮行（按状态与权限显隐）→ 字段区双列 → 描述 → 进度 → 操作时间线。
- * M2 不含子任务 / 评论 / 附件 / 邮件记录区（后续里程碑）。
+ * 墨青标题栏 → 操作按钮行（按状态与权限显隐）→ 字段区双列 → 描述 → 进度 →
+ * 子任务 → 附件 → 评论 → 操作时间线（M4 起全量分区）。
+ * 归档任务（close）：评论与附件上传只读（后端 2005 兜底）。
  *
- * 数据：GET /task/api/v1/tasks/{id} → { task, timeline }
+ * 数据：GET /task/api/v1/tasks/{id} → { task, timeline, subtasks, attachments }
  * 状态机动作：accept / progress / submit-acceptance / approve / reject / transfer /
  *            PATCH priority / PATCH due / archive（接口设计文档 4.2）
  */
@@ -58,6 +62,10 @@ const task = shallowRef<TaskDetail | null>(null)
 const timeline = shallowRef<TimelineItem[]>([])
 /** 子任务清单（顶层任务才有；PRD 4.1.7） */
 const subtasks = shallowRef<TaskItem[]>([])
+/** 附件清单（M4，随详情返回） */
+const attachments = shallowRef<TaskAttachment[]>([])
+/** 已归档：评论 / 附件上传禁用（后端 2005 兜底） */
+const isArchived = computed(() => task.value?.status === 'close')
 
 async function loadDetail() {
   if (!props.taskId) return
@@ -66,6 +74,7 @@ async function loadDetail() {
     const data = await fetchTaskDetailApi(props.taskId)
     task.value = data.task
     subtasks.value = data.subtasks ?? []
+    attachments.value = data.attachments ?? []
     // 时间线倒序（最新在前）
     timeline.value = [...(data.timeline ?? [])].sort(
       (a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id,
@@ -417,6 +426,22 @@ async function handleActionChanged() {
             </div>
           </div>
           <div v-else class="timeline-empty">暂无子任务</div>
+        </div>
+
+        <!-- 附件（M4）：上传 / 下载 / 删除；归档任务只读 -->
+        <div class="d-sec attachment-sec">
+          <div class="sec-title">附件（{{ attachments.length }}）</div>
+          <TaskAttachmentSection
+            :task-id="task.id"
+            :archived="isArchived"
+            :initial-attachments="attachments"
+          />
+        </div>
+
+        <!-- 评论（M4）：正序列表 + 发送；归档任务只读 -->
+        <div class="d-sec comment-sec">
+          <div class="sec-title">评论</div>
+          <TaskCommentSection :task-id="task.id" :archived="isArchived" />
         </div>
 
         <!-- 操作时间线（倒序，竖线 + 色点） -->
