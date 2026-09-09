@@ -45,6 +45,9 @@ public class StatsTaskDaily {
     private Long p2Count;
     private Long p3Count;
 
+    /** 当日创建且优先级=P0 且未完成(new/doing/wait)的任务数（PRD 4.3.2 紧急任务，KPI.p0 数据源） */
+    private Long p0Unfinished;
+
     /** 当日创建且已完成/已归档的任务数 */
     private Long completedCount;
 
@@ -148,6 +151,14 @@ public class StatsTaskDaily {
 
     public void setP3Count(Long p3Count) {
         this.p3Count = p3Count;
+    }
+
+    public Long getP0Unfinished() {
+        return p0Unfinished;
+    }
+
+    public void setP0Unfinished(Long p0Unfinished) {
+        this.p0Unfinished = p0Unfinished;
     }
 
     public Long getCompletedCount() {

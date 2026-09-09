@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * 任务域事件消费者（架构 3.3）：增量维护三张聚合表。
+ * 任务域事件消费者（架构 3.3）：增量维护四张聚合表。
  *
  * <p>只消费 task.status.changed 做状态桶调整；task.approved / task.rejected
  * 的状态语义已被其后的 status.changed 覆盖（同一事务内先发语义事件、
@@ -48,6 +48,12 @@ public class StatsEventConsumer {
             event = objectMapper.readValue(body, TaskEvents.TaskEvent.class);
         } catch (Exception e) {
             log.error("事件反序列化失败，丢弃: {}", body, e);
+            return;
+        }
+        // eventId 是幂等键，缺失/非法的事件无法消费：直接丢弃并告警，避免 nack-requeue
+        // 死循环卡死本队列（曾发生外来探针事件缺 eventId → 无限重投）。
+        if (event.eventId() == null) {
+            log.error("事件缺 eventId，丢弃（外来/畸形事件）: type={}", event.eventType());
             return;
         }
         // 幂等去重：生产者 at-least-once，重复投递直接跳过（架构文档第 5 章）

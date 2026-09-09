@@ -5,8 +5,10 @@ import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
 import com.taskflow.stats.client.AuthUserClient;
 import com.taskflow.stats.entity.StatsAssigneeLoad;
+import com.taskflow.stats.entity.StatsCompletionDaily;
 import com.taskflow.stats.entity.StatsTaskDaily;
 import com.taskflow.stats.mapper.StatsAssigneeLoadMapper;
+import com.taskflow.stats.mapper.StatsCompletionDailyMapper;
 import com.taskflow.stats.mapper.StatsOverdueDailyMapper;
 import com.taskflow.stats.mapper.StatsTaskDailyMapper;
 import org.slf4j.Logger;
@@ -30,6 +32,10 @@ import java.util.stream.Collectors;
  * 统计总览查询（接口 #47，PRD 4.3）：全部指标从预聚合表汇总，禁实时全表扫描。
  *
  * <p>区间口径：以任务创建时间（stats_task_daily.stat_date）落入区间为准，只计顶层任务；
+ * 紧急任务 P0（KPI.p0）取 p0_unfinished（区间创建日 ∩ 优先级 P0 ∩ 当前未完成，PRD 4.3.2）；
+ * 趋势 completed（V2）改读 stats_completion_daily 按"完成日落在同一日历区间"聚合——
+ * completed 与 created 的区间含义不同轴：created 按创建日过滤、completed 按完成日过滤
+ * （PRD 趋势图常规语义，代码注释已写明）；
  * 逾期取 stats_overdue_daily 最新快照日（误差 ≤ 24h，决策基线 #7）；
  * 趋势区间跨度 ≤ 70 天按日聚合，否则按周聚合（date 为周一）。</p>
  */
@@ -44,15 +50,18 @@ public class OverviewService {
     private final StatsTaskDailyMapper dailyMapper;
     private final StatsOverdueDailyMapper overdueMapper;
     private final StatsAssigneeLoadMapper loadMapper;
+    private final StatsCompletionDailyMapper completionMapper;
     private final AuthUserClient authUserClient;
 
     public OverviewService(StatsTaskDailyMapper dailyMapper,
                            StatsOverdueDailyMapper overdueMapper,
                            StatsAssigneeLoadMapper loadMapper,
+                           StatsCompletionDailyMapper completionMapper,
                            AuthUserClient authUserClient) {
         this.dailyMapper = dailyMapper;
         this.overdueMapper = overdueMapper;
         this.loadMapper = loadMapper;
+        this.completionMapper = completionMapper;
         this.authUserClient = authUserClient;
     }
 
@@ -119,7 +128,10 @@ public class OverviewService {
         long doing = num(sum.get("doing"));
         long waiting = num(sum.get("waiting"));
         long done = num(sum.get("completed"));
-        long p0 = num(sum.get("p0"));
+        // 优先级分布口径（区间创建且 P0，不变）
+        long p0Created = num(sum.get("p0"));
+        // 紧急任务 KPI.p0（V2 口径，PRD 4.3.2）：区间创建且优先级 P0 且当前未完成
+        long p0 = num(sum.get("p0_unfinished"));
         long completed = num(sum.get("completed"));
         BigDecimal hours = sum.get("hours") instanceof BigDecimal b ? b : BigDecimal.ZERO;
         long ontime = num(sum.get("ontime"));
@@ -136,6 +148,7 @@ public class OverviewService {
         kpi.put("doing", doing);
         kpi.put("waiting", waiting);
         kpi.put("overdue", overdue);
+        // KPI.p0 = Σ(区间创建日各行的 p0_unfinished)；p0Percent 保留 1 位小数
         kpi.put("p0", p0);
         kpi.put("p0Percent", total == 0 ? 0
                 : BigDecimal.valueOf(p0 * 100.0 / total).setScale(1, RoundingMode.HALF_UP).doubleValue());
@@ -155,7 +168,7 @@ public class OverviewService {
                 Map.of("status", "done", "count", num(sum.get("done"))),
                 Map.of("status", "close", "count", num(sum.get("close")))));
         data.put("priorityDistribution", List.of(
-                Map.of("priority", "P0", "count", p0),
+                Map.of("priority", "P0", "count", p0Created),
                 Map.of("priority", "P1", "count", num(sum.get("p1"))),
                 Map.of("priority", "P2", "count", num(sum.get("p2"))),
                 Map.of("priority", "P3", "count", num(sum.get("p3")))));
@@ -165,36 +178,51 @@ public class OverviewService {
 
     /**
      * 任务趋势：区间跨度 ≤ 70 天按日聚合（缺日补 0），否则按周聚合（date 为周一）。
-     * created = 当日创建数（total_count），completed = 当日创建且已完成数（completed_count）。
+     *
+     * <p>口径（V2）：created 沿用创建日口径——读 stats_task_daily.total_count，按 stat_date
+     * 落入 [rangeStart, rangeEnd] 过滤（创建时间轴）；completed 改读 stats_completion_daily.completed，
+     * 按 complete_date 落在同一日历区间过滤（完成时间轴）。completed 与 created 的"区间"含义不同：
+     * created 是"区间内创建的任务"，completed 是"完成日落在区间内的任务"——两者是不同的任务集合，
+     * PRD 趋势图常规语义（代码注释与验收报告已写明该口径差异）。</p>
      */
     private List<Map<String, Object>> trend(LocalDate rangeStart, LocalDate rangeEnd,
                                             LocalDate displayStart, LocalDate displayEnd) {
+        // created：创建日（stats_task_daily.stat_date）区间过滤
         QueryWrapper<StatsTaskDaily> qw = new QueryWrapper<>();
         qw.ge(rangeStart != null, "stat_date", rangeStart)
-                .le(rangeEnd != null, "stat_date", rangeEnd)
-                .orderByAsc("stat_date");
-        Map<LocalDate, long[]> byDate = new HashMap<>();
+                .le(rangeEnd != null, "stat_date", rangeEnd);
+        Map<LocalDate, Long> createdByDate = new HashMap<>();
         for (StatsTaskDaily row : dailyMapper.selectList(qw)) {
-            byDate.put(row.getStatDate(),
-                    new long[]{row.getTotalCount(), row.getCompletedCount()});
+            createdByDate.put(row.getStatDate(), row.getTotalCount());
+        }
+        // completed：完成日（stats_completion_daily.complete_date）区间过滤
+        QueryWrapper<StatsCompletionDaily> cqw = new QueryWrapper<>();
+        cqw.ge(rangeStart != null, "complete_date", rangeStart)
+                .le(rangeEnd != null, "complete_date", rangeEnd);
+        Map<LocalDate, Long> completedByDate = new HashMap<>();
+        for (StatsCompletionDaily row : completionMapper.selectList(cqw)) {
+            completedByDate.put(row.getCompleteDate(), row.getCompleted());
         }
 
         long days = ChronoUnit.DAYS.between(displayStart, displayEnd) + 1;
         List<Map<String, Object>> trend = new ArrayList<>();
         if (days <= DAILY_TREND_MAX_DAYS) {
             for (LocalDate d = displayStart; !d.isAfter(displayEnd); d = d.plusDays(1)) {
-                long[] v = byDate.getOrDefault(d, new long[2]);
-                trend.add(Map.of("date", d.toString(), "created", v[0], "completed", v[1]));
+                trend.add(Map.of("date", d.toString(),
+                        "created", createdByDate.getOrDefault(d, 0L),
+                        "completed", completedByDate.getOrDefault(d, 0L)));
             }
             return trend;
         }
         // 按周聚合：date 为周期起始日（周一），首周从区间起点对齐到周一
         TreeMap<LocalDate, long[]> byWeek = new TreeMap<>();
-        byDate.forEach((d, v) -> {
+        createdByDate.forEach((d, v) -> {
             LocalDate weekStart = d.with(DayOfWeek.MONDAY);
-            long[] agg = byWeek.computeIfAbsent(weekStart, k -> new long[2]);
-            agg[0] += v[0];
-            agg[1] += v[1];
+            byWeek.computeIfAbsent(weekStart, k -> new long[2])[0] += v;
+        });
+        completedByDate.forEach((d, v) -> {
+            LocalDate weekStart = d.with(DayOfWeek.MONDAY);
+            byWeek.computeIfAbsent(weekStart, k -> new long[2])[1] += v;
         });
         LocalDate firstWeek = displayStart.with(DayOfWeek.MONDAY);
         for (LocalDate w = firstWeek; !w.isAfter(displayEnd); w = w.plusWeeks(1)) {

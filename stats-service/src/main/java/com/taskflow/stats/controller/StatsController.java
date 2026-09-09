@@ -48,10 +48,10 @@ public class StatsController {
     }
 
     /**
-     * 聚合回填（admin 专用）：清空三张聚合表后经 Feign 拉 task-service 全量任务重算。
+     * 聚合回填（admin 专用）：清空四张聚合表后经 Feign 拉 task-service 全量任务重算。
      * 用于事件上线前的历史任务、以及消费漂移后的最终一致性修复。
      *
-     * @return 重算摘要 {tasks, days, overdue}
+     * @return 重算摘要 {tasks, days, completionDays, overdue}
      */
     @PostMapping("/rebuild")
     @RequirePerm("viewStats")

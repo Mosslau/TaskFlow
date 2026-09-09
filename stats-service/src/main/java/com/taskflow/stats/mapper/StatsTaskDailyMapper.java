@@ -20,27 +20,28 @@ public interface StatsTaskDailyMapper extends BaseMapper<StatsTaskDaily> {
      * 日聚合增量 UPSERT：无行则建行，有行则各计数列 += 增量。
      * 所有聚合写入（事件消费与 rebuild）统一走此方法，保证口径一致。
      *
-     * @param statDate 统计日（任务创建日）
-     * @param total    total_count 增量
-     * @param newCount new_count 增量
-     * @param doing    doing_count 增量
-     * @param wait     wait_count 增量
-     * @param done     done_count 增量
-     * @param close    close_count 增量
-     * @param p0       p0_count 增量
-     * @param p1       p1_count 增量
-     * @param p2       p2_count 增量
-     * @param p3       p3_count 增量
-     * @param completed completed_count 增量
-     * @param hours    completed_hours_sum 增量（小时）
-     * @param ontime   ontime_count 增量
+     * @param statDate      统计日（任务创建日）
+     * @param total         total_count 增量
+     * @param newCount      new_count 增量
+     * @param doing         doing_count 增量
+     * @param wait          wait_count 增量
+     * @param done          done_count 增量
+     * @param close         close_count 增量
+     * @param p0            p0_count 增量
+     * @param p1            p1_count 增量
+     * @param p2            p2_count 增量
+     * @param p3            p3_count 增量
+     * @param p0Unfinished  p0_unfinished 增量（当日创建且 P0 且未完成，PRD 4.3.2）
+     * @param completed     completed_count 增量
+     * @param hours         completed_hours_sum 增量（小时）
+     * @param ontime        ontime_count 增量
      * @return 影响行数
      */
     @Insert("INSERT INTO stats_task_daily (stat_date, total_count, new_count, doing_count, wait_count,"
-            + " done_count, close_count, p0_count, p1_count, p2_count, p3_count,"
+            + " done_count, close_count, p0_count, p1_count, p2_count, p3_count, p0_unfinished,"
             + " completed_count, completed_hours_sum, ontime_count)"
             + " VALUES (#{statDate}, #{total}, #{newCount}, #{doing}, #{wait},"
-            + " #{done}, #{close}, #{p0}, #{p1}, #{p2}, #{p3}, #{completed}, #{hours}, #{ontime})"
+            + " #{done}, #{close}, #{p0}, #{p1}, #{p2}, #{p3}, #{p0Unfinished}, #{completed}, #{hours}, #{ontime})"
             + " ON CONFLICT (stat_date) DO UPDATE SET"
             + " total_count = stats_task_daily.total_count + EXCLUDED.total_count,"
             + " new_count = stats_task_daily.new_count + EXCLUDED.new_count,"
@@ -52,6 +53,7 @@ public interface StatsTaskDailyMapper extends BaseMapper<StatsTaskDaily> {
             + " p1_count = stats_task_daily.p1_count + EXCLUDED.p1_count,"
             + " p2_count = stats_task_daily.p2_count + EXCLUDED.p2_count,"
             + " p3_count = stats_task_daily.p3_count + EXCLUDED.p3_count,"
+            + " p0_unfinished = stats_task_daily.p0_unfinished + EXCLUDED.p0_unfinished,"
             + " completed_count = stats_task_daily.completed_count + EXCLUDED.completed_count,"
             + " completed_hours_sum = stats_task_daily.completed_hours_sum + EXCLUDED.completed_hours_sum,"
             + " ontime_count = stats_task_daily.ontime_count + EXCLUDED.ontime_count")
@@ -66,6 +68,7 @@ public interface StatsTaskDailyMapper extends BaseMapper<StatsTaskDaily> {
                     @Param("p1") long p1,
                     @Param("p2") long p2,
                     @Param("p3") long p3,
+                    @Param("p0Unfinished") long p0Unfinished,
                     @Param("completed") long completed,
                     @Param("hours") BigDecimal hours,
                     @Param("ontime") long ontime);
@@ -88,6 +91,7 @@ public interface StatsTaskDailyMapper extends BaseMapper<StatsTaskDaily> {
             + " COALESCE(SUM(p1_count),0) AS p1,"
             + " COALESCE(SUM(p2_count),0) AS p2,"
             + " COALESCE(SUM(p3_count),0) AS p3,"
+            + " COALESCE(SUM(p0_unfinished),0) AS p0_unfinished,"
             + " COALESCE(SUM(completed_count),0) AS completed,"
             + " COALESCE(SUM(completed_hours_sum),0) AS hours,"
             + " COALESCE(SUM(ontime_count),0) AS ontime"

@@ -2,6 +2,7 @@ package com.taskflow.stats.service;
 
 import com.taskflow.stats.client.TaskClient;
 import com.taskflow.stats.mapper.StatsAssigneeLoadMapper;
+import com.taskflow.stats.mapper.StatsCompletionDailyMapper;
 import com.taskflow.stats.mapper.StatsOverdueDailyMapper;
 import com.taskflow.stats.mapper.StatsTaskDailyMapper;
 import org.slf4j.Logger;
@@ -28,9 +29,17 @@ import java.util.TreeMap;
  * <ul>
  *   <li>stats_task_daily 只计顶层任务（parentId 为空），统计日 = 任务创建日（东八区）；</li>
  *   <li>状态桶：new/doing/wait/done/close 五列随状态流转 ±1（创建即入 new 桶）；</li>
- *   <li>完成指标：进入 done/close 时 completed+1，完成时长 = 完成时刻（增量路径取事件
- *       处理时刻，回填路径取 updatedAt）- createdAt，按时 = 完成时刻 ≤ dueAt；</li>
- *   <li>stats_assignee_load 计全部任务（含子任务）的未完成（new/doing/wait）数；</li>
+ *   <li>完成指标（stats_task_daily 的创建日队列口径）：进入 done/close 时 completed+1，
+ *       完成时长 = 完成时刻（增量路径取事件处理时刻，回填路径取 updatedAt）- createdAt，
+ *       按时 = 完成时刻 ≤ dueAt；</li>
+ *   <li>紧急任务 P0（V2，PRD 4.3.2）：p0_unfinished = 当日创建且优先级=P0 且当前状态∈未完成。
+ *       task.assigned(P0 新任务) +1；task.status.changed 未完成→终态 -1、终态→未完成保守 +1
+ *       （优先级调整不产生 status.changed 事件，P0↔非P0 的存量变化由 rebuild 校准）；</li>
+ *   <li>完成日聚合 stats_completion_daily（V2，趋势 completed 数据源）：与 stats_task_daily
+ *       的创建日队列不同轴，按"进入终态的那一次"（from∈未完成 → to∈done/close）归入完成日，
+ *       done→close 归档（from=done）不重复计；只计顶层任务；</li>
+ *   <li>stats_assignee_load 计全部任务（含子任务）的未完成（new/doing/wait）数；
+ *       转派负载调整带完成态守卫：载荷携带 status∈{done,close} 时不 ±（完成态任务转派不改负载）；</li>
  *   <li>stats_overdue_daily 由 task.overdue 事件按（快照日, 创建日）累积。</li>
  * </ul>
  */
@@ -54,15 +63,18 @@ public class StatsAggregateService {
     private final StatsTaskDailyMapper dailyMapper;
     private final StatsOverdueDailyMapper overdueMapper;
     private final StatsAssigneeLoadMapper loadMapper;
+    private final StatsCompletionDailyMapper completionMapper;
     private final TaskClient taskClient;
 
     public StatsAggregateService(StatsTaskDailyMapper dailyMapper,
                                  StatsOverdueDailyMapper overdueMapper,
                                  StatsAssigneeLoadMapper loadMapper,
+                                 StatsCompletionDailyMapper completionMapper,
                                  TaskClient taskClient) {
         this.dailyMapper = dailyMapper;
         this.overdueMapper = overdueMapper;
         this.loadMapper = loadMapper;
+        this.completionMapper = completionMapper;
         this.taskClient = taskClient;
     }
 
@@ -70,6 +82,7 @@ public class StatsAggregateService {
 
     /**
      * task.assigned：顶层任务按创建日行 total+1、new+1、pX+1；
+     * 优先级=P0 的新任务（状态=new ∈ 未完成）p0_unfinished+1（PRD 4.3.2）；
      * 人员负载 +1（含子任务，与 rebuild 口径一致）。
      *
      * @param p 事件载荷
@@ -78,14 +91,10 @@ public class StatsAggregateService {
         if (isTopLevel(p)) {
             LocalDate date = dateOf(str(p.get("createdAt")), LocalDate.now(ZONE));
             String priority = str(p.get("priority"));
-            if (priority.isBlank()) {
-                // 当前 task.assigned 载荷未含 priority（契约缺口，待 task-service 补字段）：
-                // pX 列暂由 rebuild 兜底，事件到达但无优先级时不增量
-                log.debug("task.assigned 载荷无 priority，pX 列本次不增量: taskNo={}", p.get("taskNo"));
-            }
             long[] prio = priorityDelta(priority, 1);
             dailyMapper.upsertDelta(date, 1, 1, 0, 0, 0, 0,
-                    prio[0], prio[1], prio[2], prio[3], 0, BigDecimal.ZERO, 0);
+                    prio[0], prio[1], prio[2], prio[3],
+                    "P0".equals(priority) ? 1 : 0, 0, BigDecimal.ZERO, 0);
         }
         Long assigneeId = toLong(p.get("assigneeId"));
         if (assigneeId != null) {
@@ -95,7 +104,13 @@ public class StatsAggregateService {
 
     /**
      * task.status.changed：顶层任务按创建日行 from 桶 -1、to 桶 +1；
-     * to ∈ done/close 时完成指标 +1；人员负载按「未完成集合」进出 ±1（含子任务）。
+     * <ul>
+     *   <li>to ∈ done/close 时完成指标 +1（stats_task_daily 创建日队列口径不变）；</li>
+     *   <li>仅"进入终态的那一次"（from∈未完成 → to∈done/close）计入 stats_completion_daily
+     *       （done→close 归档 from=done 不重复计；转派/reject 等不触发）；</li>
+     *   <li>P0 任务离开未完成（→终态）p0_unfinished-1；终态回未完成保守 +1；</li>
+     *   <li>人员负载按「未完成集合」进出 ±1（含子任务）。</li>
+     * </ul>
      *
      * @param p 事件载荷
      */
@@ -106,13 +121,14 @@ public class StatsAggregateService {
             LocalDate date = dateOf(str(p.get("createdAt")), LocalDate.now(ZONE));
             long[] fromBucket = statusBucket(from, -1);
             long[] toBucket = statusBucket(to, 1);
+            // 进入终态判定：未完成集合 → 完成集合（避免 reject(doing) 与 done→close 归档误计）
+            boolean enteredCompleted = UNFINISHED.contains(from) && COMPLETED.contains(to);
             long completed = 0;
             long ontime = 0;
             BigDecimal hours = BigDecimal.ZERO;
-            if (COMPLETED.contains(to) && !COMPLETED.contains(from)) {
-                // 进入完成态：完成指标（重新打开再完成属于新的完成，累计计数）
+            OffsetDateTime now = OffsetDateTime.now(ZONE);
+            if (enteredCompleted) {
                 completed = 1;
-                OffsetDateTime now = OffsetDateTime.now(ZONE);
                 OffsetDateTime createdAt = parseTime(str(p.get("createdAt")));
                 if (createdAt != null) {
                     hours = hoursBetween(createdAt, now);
@@ -122,11 +138,24 @@ public class StatsAggregateService {
                     ontime = 1;
                 }
             }
+            // P0 未完成守卫：P0 任务离开未完成集合则 -1；终态回未完成保守 +1（当前状态机不会发生）
+            long p0Unfinished = 0;
+            if ("P0".equals(str(p.get("priority")))) {
+                if (enteredCompleted) {
+                    p0Unfinished = -1;
+                } else if (COMPLETED.contains(from) && UNFINISHED.contains(to)) {
+                    p0Unfinished = 1;
+                }
+            }
             dailyMapper.upsertDelta(date, 0,
                     fromBucket[0] + toBucket[0], fromBucket[1] + toBucket[1],
                     fromBucket[2] + toBucket[2], fromBucket[3] + toBucket[3],
                     fromBucket[4] + toBucket[4],
-                    0, 0, 0, 0, completed, hours, ontime);
+                    0, 0, 0, 0, p0Unfinished, completed, hours, ontime);
+            if (enteredCompleted) {
+                // 完成日口径聚合：complete_date = 事件处理当天（status.changed 载荷无完成时间）
+                completionMapper.upsertDelta(LocalDate.now(ZONE), 1, hours, ontime);
+            }
         }
         // 人员负载：状态进出未完成集合（转派的负载调整见 onTransferred）
         Long assigneeId = toLong(p.get("assigneeId"));
@@ -138,12 +167,20 @@ public class StatsAggregateService {
     }
 
     /**
-     * task.transferred：人员负载旧处理人 -1、新处理人 +1。
-     * 载荷不含任务状态，按转派发生时任务通常未完成处理；漂移由 rebuild 兜底。
+     * task.transferred：人员负载旧处理人 -1、新处理人 +1（转派守卫 V2）。
+     * 载荷携带 status 且 status ∈ {done, close}（完成态任务转派）时不调整负载——
+     * 完成态任务本就不在未完成负载内，盲目 ± 会把他人负载减错；
+     * 载荷缺 status（历史事件/旧契约）按旧逻辑 ±（此时假定任务未完成，漂移由 rebuild 兜底）。
      *
      * @param p 事件载荷
      */
     public void onTransferred(Map<String, Object> p) {
+        Object status = p.get("status");
+        if (status != null && COMPLETED.contains(status.toString())) {
+            log.debug("完成态任务转派不改负载: taskNo={}, status={}",
+                    p.get("taskNo"), status);
+            return;
+        }
         Long oldId = toLong(p.get("oldAssigneeId"));
         Long newId = toLong(p.get("newAssigneeId"));
         if (oldId != null && !oldId.equals(newId)) {
@@ -171,19 +208,21 @@ public class StatsAggregateService {
     // ==================== rebuild 全量重算 ====================
 
     /**
-     * 回填：清空三张聚合表后，经 Feign 拉 task-service 全量任务重算。
+     * 回填：清空四张聚合表后，经 Feign 拉 task-service 全量任务重算。
      * 幂等表 processed_event 不清（历史事件不会重投，清掉反而失去防重）。
      *
-     * @return 重算摘要 {tasks, days, overdue}
+     * @return 重算摘要 {tasks, days, completionDays, overdue}
      */
     @Transactional
     public Map<String, Object> rebuild() {
         dailyMapper.truncate();
         overdueMapper.truncate();
         loadMapper.truncate();
+        completionMapper.truncate();
 
-        // 内存聚合：日聚合 / 人员负载 / 逾期快照（快照日 = 今天）
+        // 内存聚合：日聚合（创建日队列）/ 完成日聚合 / 人员负载 / 逾期快照（快照日 = 今天）
         Map<LocalDate, DailyAgg> daily = new TreeMap<>();
+        Map<LocalDate, CompletionAgg> completion = new TreeMap<>();
         Map<Long, Long> load = new HashMap<>();
         Map<LocalDate, Long> overdue = new TreeMap<>();
         OffsetDateTime now = OffsetDateTime.now(ZONE);
@@ -201,7 +240,7 @@ public class StatsAggregateService {
                 break;
             }
             for (Map<String, Object> t : list) {
-                accumulate(t, daily, load, overdue, now);
+                accumulate(t, daily, completion, load, overdue, now);
                 tasks++;
             }
             long total = toLong(data.get("total")) == null ? 0 : toLong(data.get("total"));
@@ -213,18 +252,22 @@ public class StatsAggregateService {
 
         daily.forEach((date, agg) -> dailyMapper.upsertDelta(date, agg.total,
                 agg.newCount, agg.doing, agg.wait, agg.done, agg.close,
-                agg.p0, agg.p1, agg.p2, agg.p3, agg.completed, agg.hours, agg.ontime));
+                agg.p0, agg.p1, agg.p2, agg.p3, agg.p0Unfinished, agg.completed, agg.hours, agg.ontime));
+        completion.forEach((date, agg) -> completionMapper.upsertDelta(date, agg.completed, agg.hours, agg.ontime));
         load.forEach((assigneeId, count) -> loadMapper.upsertDelta(assigneeId, count));
         LocalDate today = LocalDate.now(ZONE);
         overdue.forEach((createdDate, count) -> overdueMapper.upsertDelta(today, createdDate, count));
 
         long overdueTotal = overdue.values().stream().mapToLong(Long::longValue).sum();
-        log.info("rebuild 完成: tasks={}, days={}, overdue={}", tasks, daily.size(), overdueTotal);
-        return Map.of("tasks", tasks, "days", daily.size(), "overdue", overdueTotal);
+        log.info("rebuild 完成: tasks={}, days={}, completionDays={}, overdue={}",
+                tasks, daily.size(), completion.size(), overdueTotal);
+        return Map.of("tasks", tasks, "days", daily.size(), "completionDays", completion.size(),
+                "overdue", overdueTotal);
     }
 
     /** 单任务计入内存聚合（rebuild 用；与事件增量同口径，完成时刻取 updatedAt） */
     private void accumulate(Map<String, Object> t, Map<LocalDate, DailyAgg> daily,
+                            Map<LocalDate, CompletionAgg> completion,
                             Map<Long, Long> load, Map<LocalDate, Long> overdue, OffsetDateTime now) {
         String status = str(t.get("status"));
         OffsetDateTime createdAt = parseTime(str(t.get("createdAt")));
@@ -242,7 +285,7 @@ public class StatsAggregateService {
         if (UNFINISHED.contains(status) && dueAt != null && dueAt.isBefore(now)) {
             overdue.merge(createdDate, 1L, Long::sum);
         }
-        // 日聚合：仅顶层任务
+        // 日聚合 / 完成日聚合：仅顶层任务
         if (t.get("parentId") != null) {
             return;
         }
@@ -256,13 +299,19 @@ public class StatsAggregateService {
             case "close" -> agg.close++;
             default -> log.warn("未知任务状态: {}", status);
         }
-        switch (str(t.get("priority"))) {
+        String priority = str(t.get("priority"));
+        switch (priority) {
             case "P0" -> agg.p0++;
             case "P1" -> agg.p1++;
             case "P2" -> agg.p2++;
             case "P3" -> agg.p3++;
             default -> log.warn("未知优先级: {}", t.get("priority"));
         }
+        // p0_unfinished（PRD 4.3.2）：P0 且当前未完成 → 创建日行 +1
+        if ("P0".equals(priority) && UNFINISHED.contains(status)) {
+            agg.p0Unfinished++;
+        }
+        // stats_task_daily 的创建日队列完成指标（语义保持）
         if (COMPLETED.contains(status)) {
             agg.completed++;
             if (createdAt != null && updatedAt != null) {
@@ -272,9 +321,24 @@ public class StatsAggregateService {
                 agg.ontime++;
             }
         }
+        // stats_completion_daily（V2，完成日口径）：当前 done/close 的任务按其 updated_at
+        // （近似完成时刻，存量无独立完成时间列）归入完成日
+        if (COMPLETED.contains(status)) {
+            LocalDate completeDate = updatedAt == null
+                    ? createdDate : updatedAt.atZoneSameInstant(ZONE).toLocalDate();
+            CompletionAgg c = completion.computeIfAbsent(completeDate, k -> new CompletionAgg());
+            c.completed++;
+            if (createdAt != null && updatedAt != null) {
+                BigDecimal h = hoursBetween(createdAt, updatedAt);
+                c.hours = c.hours.add(h);
+                if (dueAt != null && !updatedAt.isAfter(dueAt)) {
+                    c.ontime++;
+                }
+            }
+        }
     }
 
-    /** rebuild 内存聚合的行结构 */
+    /** rebuild 内存聚合的行结构（创建日队列） */
     private static final class DailyAgg {
         long total;
         long newCount;
@@ -286,6 +350,14 @@ public class StatsAggregateService {
         long p1;
         long p2;
         long p3;
+        long p0Unfinished;
+        long completed;
+        BigDecimal hours = BigDecimal.ZERO;
+        long ontime;
+    }
+
+    /** rebuild 内存聚合的行结构（完成日队列，stats_completion_daily） */
+    private static final class CompletionAgg {
         long completed;
         BigDecimal hours = BigDecimal.ZERO;
         long ontime;
