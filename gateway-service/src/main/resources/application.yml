@@ -13,6 +13,9 @@ spring:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
+        # 本机单机开发固定注册回环 IP：避免 DHCP 换网后注册的旧 IP 失效，
+        # 导致网关/Feign 按旧地址连接超时（多机或容器部署时用 NACOS_DISCOVERY_IP 覆盖为真实 IP）
+        ip: ${NACOS_DISCOVERY_IP:127.0.0.1}
       config:
         server-addr: 127.0.0.1:8848
     gateway:

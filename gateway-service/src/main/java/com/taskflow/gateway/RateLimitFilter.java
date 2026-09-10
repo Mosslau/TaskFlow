@@ -103,16 +103,18 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
         // 固定分钟桶：同一分钟累计，下一分钟自动换桶（旧桶 TTL 清理）
         String key = KEY_PREFIX + identity + ":" + (System.currentTimeMillis() / 60_000L);
 
+        // 限流属防护性能力：**仅 Redis 计数失败时**放行并告警（避免单点故障放大，鉴权仍 fail-closed）。
+        // 注意：onErrorResume 必须只包住 Redis 调用——若包住整条链，会把下游/路由错误误报为
+        // "限流异常"，并因 onErrorResume 里再次 chain.filter 导致请求被重复执行（曾造成 30s 卡顿假象）。
         return redis.opsForValue().increment(key)
                 .flatMap(count -> redis.expire(key, Duration.ofSeconds(WINDOW_TTL_SECONDS)).thenReturn(count))
-                .flatMap(count -> count > quota
-                        ? reject(exchange, quota)
-                        : chain.filter(exchange))
-                // 限流属防护性能力：Redis 异常时放行并告警，避免单点故障放大（鉴权仍 fail-closed）
                 .onErrorResume(e -> {
-                    log.warn("限流检查异常，本次放行: identity={}, err={}", identity, e.getMessage());
-                    return chain.filter(exchange);
-                });
+                    log.warn("限流计数失败，本次放行: identity={}, err={}", identity, e.getMessage());
+                    return Mono.just(-1L); // -1 = 未计数（跳过限流判定，正常放行）
+                })
+                .flatMap(count -> count >= 0 && count > quota
+                        ? reject(exchange, quota)
+                        : chain.filter(exchange));
     }
 
     /** 来源 IP：优先 X-Forwarded-For 首跳（nginx 等代理场景），否则取直连远端地址 */
