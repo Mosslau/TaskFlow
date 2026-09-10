@@ -2,11 +2,18 @@ server:
   port: 8000 # Nacos 3.x 控制台占用 8080，网关用 8000
 
 spring:
+  # Nacos 配置中心（M7 落地）：共享配置 + 服务专属配置，均可选（拉不到时用本地默认）
+  config:
+    import:
+      - optional:nacos:taskflow-common.yaml
+      - optional:nacos:${spring.application.name}.yaml
   application:
     name: gateway-service
   cloud:
     nacos:
       discovery:
+        server-addr: 127.0.0.1:8848
+      config:
         server-addr: 127.0.0.1:8848
     gateway:
       routes:
@@ -45,3 +52,22 @@ taskflow:
     enabled: true
     user-per-minute: 300
     ip-per-minute: 600
+
+# 可观测性（M7）：Actuator 端点 + Micrometer Prometheus 指标导出
+management:
+  endpoints:
+    web:
+      exposure:
+        # 暴露 健康/信息/Prometheus 抓取/指标明细 四类端点
+        include: health,info,prometheus,metrics,refresh
+  endpoint:
+    health:
+      # 直连排障时展示各组件明细（db/redis/rabbit 等）
+      show-details: always
+      probes:
+        # 开启 /actuator/health/readiness 与 /actuator/health/liveness（K8s 探针）
+        enabled: true
+  metrics:
+    tags:
+      # 所有指标统一打 application 标签，多服务聚合时用于区分来源
+      application: ${spring.application.name}

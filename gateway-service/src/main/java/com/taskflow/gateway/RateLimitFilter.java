@@ -27,7 +27,7 @@ import java.util.Set;
 /**
  * 网关级 Redis 限流过滤器（PRD 7.3 / M6.4，M6 缺陷 #5 补实现）。
  *
- * <p>运行在鉴权过滤器之后（order = HIGHEST_PRECEDENCE + 2），此时
+ * <p>运行在鉴权过滤器之后（order = HIGHEST_PRECEDENCE + 3），此时
  * JWT / API Key 请求已由上游过滤器注入 X-User-Id 身份头，故：</p>
  * <ul>
  *   <li>带 X-User-Id → 按用户维度计数（配额 {@code taskflow.ratelimit.user-per-minute}，默认 300/分）</li>
@@ -43,6 +43,8 @@ import java.util.Set;
  * 避免限流组件故障拖垮全部流量——鉴权仍由上游过滤器 fail-closed 兜底。</p>
  */
 @Component
+// @RefreshScope：限流配额来自 Nacos 配置中心，改配置后 POST /actuator/refresh 即生效
+@org.springframework.cloud.context.config.annotation.RefreshScope
 public class RateLimitFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
@@ -84,6 +86,10 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
         ServerHttpRequest request = exchange.getRequest();
+        // M7：Actuator 探针/指标端点不鉴权也不计限流（Prometheus 高频抓取不应占用用户/IP 配额）
+        if (request.getPath().value().startsWith("/actuator/")) {
+            return chain.filter(exchange);
+        }
         // 预检与健康检查不计费（浏览器 CORS / 服务探活）
         if (HttpMethod.OPTIONS.equals(request.getMethod())
                 || PING_PATHS.contains(request.getPath().value())) {
@@ -147,9 +153,10 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
         return Math.max(1, 60 - (int) (System.currentTimeMillis() % 60_000L / 1000L));
     }
 
-    /** 过滤器顺序：鉴权（ApiKey/JWT）之后、路由之前；须能看到身份头 */
+    /** 过滤器顺序：鉴权（ApiKey/JWT）之后、路由之前；须能看到身份头。
+     *  M7 链路追踪引入后依次为：TraceIdFilter(MIN) → ApiKeyAuthFilter(+1) → JwtAuthFilter(+2) → 本过滤器(+3)。 */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 2;
+        return Ordered.HIGHEST_PRECEDENCE + 3;
     }
 }

@@ -2,6 +2,11 @@ server:
   port: 8083
 
 spring:
+  # Nacos 配置中心（M7 落地）：共享配置 + 服务专属配置，均可选（拉不到时用本地默认）
+  config:
+    import:
+      - optional:nacos:taskflow-common.yaml
+      - optional:nacos:${spring.application.name}.yaml
   application:
     name: notification-service
   cloud:
@@ -18,6 +23,14 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  # common 模块自带 spring-boot-starter-data-redis，本服务虽不直接使用 Redis，
+  # 但缺省配置会连无密码的 127.0.0.1:6379，触发 Actuator redis 健康检查 DOWN；
+  # 这里补齐与其他服务一致的连接参数，保证 /actuator/health 判活准确
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: root
   rabbitmq:
     host: 127.0.0.1
     port: 5672
@@ -53,3 +66,28 @@ taskflow:
     ttl: PT2H
   mail:
     from: ${MAIL_FROM:taskflow@example.com}
+
+# 可观测性（M7）：Actuator 端点 + Micrometer Prometheus 指标导出
+management:
+  endpoints:
+    web:
+      exposure:
+        # 暴露 健康/信息/Prometheus 抓取/指标明细 四类端点
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      # 直连排障时展示各组件明细（db/redis/rabbit 等）
+      show-details: always
+      probes:
+        # 开启 /actuator/health/readiness 与 /actuator/health/liveness（K8s 探针）
+        enabled: true
+  metrics:
+    tags:
+      # 所有指标统一打 application 标签，多服务聚合时用于区分来源
+      application: ${spring.application.name}
+  health:
+    mail:
+      # 关闭 SMTP 健康指示器：联调/生产环境本机无 SMTP（见上方 spring.mail 注释），
+      # 该指示器会把整体 health 与 readiness 拖成 DOWN，导致探针误判服务不可用。
+      # 邮件发送失败本身由 MailService 的落库重试链路兜底，不依赖健康检查暴露。
+      enabled: false

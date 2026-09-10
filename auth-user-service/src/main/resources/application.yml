@@ -2,6 +2,11 @@ server:
   port: 8081
 
 spring:
+  # Nacos 配置中心（M7 落地）：共享配置 + 服务专属配置，均可选（拉不到时用本地默认）
+  config:
+    import:
+      - optional:nacos:taskflow-common.yaml
+      - optional:nacos:${spring.application.name}.yaml
   application:
     name: auth-user-service
   cloud:
@@ -36,3 +41,22 @@ taskflow:
     # 开发环境密钥；生产走环境变量（PRD 7.3.5）
     secret: ${JWT_SECRET:taskflow-dev-secret-please-override}
     ttl: PT2H
+
+# 可观测性（M7）：Actuator 端点 + Micrometer Prometheus 指标导出
+management:
+  endpoints:
+    web:
+      exposure:
+        # 暴露 健康/信息/Prometheus 抓取/指标明细 四类端点
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      # 直连排障时展示各组件明细（db/redis/rabbit 等）
+      show-details: always
+      probes:
+        # 开启 /actuator/health/readiness 与 /actuator/health/liveness（K8s 探针）
+        enabled: true
+  metrics:
+    tags:
+      # 所有指标统一打 application 标签，多服务聚合时用于区分来源
+      application: ${spring.application.name}

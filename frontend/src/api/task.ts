@@ -178,8 +178,29 @@ export interface CreateTaskBody {
   parentId?: number | null
 }
 
-export function createTaskApi(body: CreateTaskBody) {
-  return http.post('/task/api/v1/tasks', body) as Promise<TaskDetail>
+export function createTaskApi(body: CreateTaskBody, idempotencyKey?: string) {
+  return http.post('/task/api/v1/tasks', body, {
+    // 幂等键：同一提交动作（含失败重试）必须复用同一个 key，见 newIdempotencyKey 注释
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  }) as Promise<TaskDetail>
+}
+
+/**
+ * 生成创建任务的幂等键（Idempotency-Key，接口设计文档 4.1 创建任务）。
+ *
+ * 语义：**一次提交动作一个 key**——
+ * 首次提交时生成；请求失败后用户重试仍复用同一个 key（服务端据此回放首次结果，不会重复建单）；
+ * 提交成功或用户取消后重置，下一次提交生成新的 key。
+ *
+ * 优先用 crypto.randomUUID（安全上下文可用，即规范的 UUID v4）；
+ * http 访问等无 randomUUID 的环境降级为时间戳 + 随机串，仍满足唯一性与不透明性。
+ */
+export function newIdempotencyKey(): string {
+  const c = globalThis.crypto
+  if (c && typeof c.randomUUID === 'function') {
+    return c.randomUUID()
+  }
+  return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
 
 export function fetchTaskDetailApi(id: number) {

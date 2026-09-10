@@ -10,6 +10,7 @@ import {
   exportTasksCsv,
   fetchTasksApi,
   isTaskOverdue,
+  newIdempotencyKey,
   priorityStyleOf,
   taskStatusMeta,
   type TaskItem,
@@ -257,6 +258,26 @@ const createForm = reactive<{
 /** 子任务模式：非空表示正在为某个父任务创建子任务（类型继承父任务，PRD 4.1.7） */
 const createParent = shallowRef<TaskItem | null>(null)
 
+/**
+ * 本次「新建任务/子任务」提交动作的幂等键（接口设计文档 4.1 创建任务）。
+ * 同一次提交动作内保持同一个 key：请求失败后用户重试复用它，服务端按首次结果回放，
+ * 网络重试/双击/网关重放都不会重复建单；成功后或用户取消后重置为 null。
+ */
+const createIdempotencyKey = shallowRef<string | null>(null)
+
+/** 取本次提交动作的幂等键（没有则生成一个并保持到本次动作结束） */
+function ensureCreateIdempotencyKey(): string {
+  if (!createIdempotencyKey.value) {
+    createIdempotencyKey.value = newIdempotencyKey()
+  }
+  return createIdempotencyKey.value
+}
+
+/** 重置幂等键：提交成功 / 取消弹窗 / 重新打开弹窗都代表上一个提交动作已结束 */
+function resetCreateIdempotencyKey() {
+  createIdempotencyKey.value = null
+}
+
 const createRules: FormRules = {
   title: [
     { required: true, message: '请输入任务标题', trigger: 'blur' },
@@ -276,6 +297,7 @@ function openCreate() {
   createForm.priority = 'P2'
   createForm.assigneeId = undefined
   createForm.dueAt = defaultDueAt()
+  resetCreateIdempotencyKey() // 新的提交动作：换新的幂等键
   createVisible.value = true
 }
 
@@ -288,6 +310,7 @@ function openSubtaskCreate(parent: TaskItem) {
   createForm.priority = parent.priority
   createForm.assigneeId = parent.assigneeId
   createForm.dueAt = defaultDueAt()
+  resetCreateIdempotencyKey() // 新的提交动作：换新的幂等键
   createVisible.value = true
 }
 
@@ -298,15 +321,20 @@ async function submitCreate() {
   if (!valid) return
   createSubmitting.value = true
   try {
-    await createTaskApi({
-      title: createForm.title.trim(),
-      description: createForm.description.trim() || undefined,
-      taskType: createForm.taskType,
-      priority: createForm.priority,
-      assigneeId: createForm.assigneeId!,
-      dueAt: createForm.dueAt ? createForm.dueAt.toISOString() : undefined,
-      parentId: createParent.value?.id, // 子任务模式：挂在父任务下
-    })
+    await createTaskApi(
+      {
+        title: createForm.title.trim(),
+        description: createForm.description.trim() || undefined,
+        taskType: createForm.taskType,
+        priority: createForm.priority,
+        assigneeId: createForm.assigneeId!,
+        dueAt: createForm.dueAt ? createForm.dueAt.toISOString() : undefined,
+        parentId: createParent.value?.id, // 子任务模式：挂在父任务下
+      },
+      // 同一提交动作内复用同一个幂等键：失败重试/网络重放都不会重复建单
+      ensureCreateIdempotencyKey(),
+    )
+    resetCreateIdempotencyKey() // 成功：本次动作结束，下次提交换新键
     createVisible.value = false
     ElMessage.success(createParent.value ? '已创建子任务' : '已创建任务')
     // 子任务创建成功且抽屉打开着父任务：强制抽屉重新拉取（子任务清单刷新）
@@ -315,6 +343,7 @@ async function submitCreate() {
     }
     handleFilterChange()
   } catch (error) {
+    // 失败不重置 key：用户直接重试仍复用同一个 key，服务端回放首次结果（若已建单则不再新建）
     ElMessage.error(resolveApiError(error).message)
   } finally {
     createSubmitting.value = false
@@ -698,6 +727,7 @@ function handleChanged() {
       width="520px"
       align-center
       :close-on-click-modal="false"
+      @close="resetCreateIdempotencyKey"
     >
       <el-form
         ref="createFormRef"

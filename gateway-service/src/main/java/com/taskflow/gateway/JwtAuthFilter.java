@@ -58,6 +58,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "/auth/api/v1/ping", "/task/api/v1/ping",
             "/notification/api/v1/ping", "/stats/api/v1/ping");
 
+    /** Actuator 端点前缀（M7）：/actuator/health、/actuator/prometheus 等免鉴权 */
+    private static final String ACTUATOR_PREFIX = "/actuator/";
+
     private final JwtUtils jwtUtils;
     private final ReactiveStringRedisTemplate redis;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -79,6 +82,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
+        // M7：Actuator 探针/指标端点不鉴权（Prometheus 抓取与容器探针直连，无 JWT）
+        if (path.startsWith(ACTUATOR_PREFIX)) {
+            return chain.filter(exchange);
+        }
         if (WHITELIST.contains(path) || PING_PATHS.contains(path)) {
             return chain.filter(exchange);
         }
@@ -140,10 +147,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 过滤器顺序：次于 ApiKeyAuthFilter（X-API-Key 请求先由它接管），早于其余过滤器。
+     * 过滤器顺序：次于 ApiKeyAuthFilter（X-API-Key 请求先由它接管），早于 RateLimitFilter。
+     * M7 链路追踪引入后依次为：TraceIdFilter(MIN) → ApiKeyAuthFilter(+1) → 本过滤器(+2) → RateLimitFilter(+3)。
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 1;
+        return Ordered.HIGHEST_PRECEDENCE + 2;
     }
 }

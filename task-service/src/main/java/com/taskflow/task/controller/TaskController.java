@@ -2,8 +2,10 @@ package com.taskflow.task.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.taskflow.common.Result;
+import com.taskflow.task.config.AuthContext;
 import com.taskflow.task.config.RequirePerm;
 import com.taskflow.task.entity.Task;
+import com.taskflow.task.service.IdempotencyService;
 import com.taskflow.task.service.TaskService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,8 +31,11 @@ public class TaskController {
 
     private final TaskService taskService;
 
-    public TaskController(TaskService taskService) {
+    private final IdempotencyService idempotencyService;
+
+    public TaskController(TaskService taskService, IdempotencyService idempotencyService) {
         this.taskService = taskService;
+        this.idempotencyService = idempotencyService;
     }
 
     /**
@@ -65,20 +70,29 @@ public class TaskController {
      * <p>M6 #1：来源渠道由网关透传的身份上下文决定——JWT 前端无 X-Task-Source 头默认"网页"；
      * OpenAPI（X-API-Key 经网关）时网关注入 {@code X-Task-Source: openapi}，
      * 本接口据此落"OpenAPI"。Excel 导入走 ImportExportService 直传，不经过本方法。</p>
+     *
+     * <p>幂等键（可选）：客户端带 {@code Idempotency-Key} 时，同一「用户 + Key」24 小时内
+     * 只创建一条任务，重复请求按首次记录的 taskId 回放同一结果（仍是 200 + Result.ok）。
+     * 不带该头时行为与接入前完全一致。详见 {@link IdempotencyService}。</p>
      */
     @PostMapping
     @RequirePerm("create")
     public Result<Task> create(@RequestBody Map<String, Object> body,
-                               @RequestHeader(value = "X-Task-Source", required = false) String taskSourceHeader) {
-        Task task = taskService.create(
-                (String) body.get("title"),
-                (String) body.get("description"),
-                (String) body.get("taskType"),
-                (String) body.get("priority"),
-                Long.valueOf(String.valueOf(body.get("assigneeId"))),
-                body.get("dueAt") == null ? null : OffsetDateTime.parse((String) body.get("dueAt")),
-                body.get("parentId") == null ? null : Long.valueOf(String.valueOf(body.get("parentId"))),
-                "openapi".equalsIgnoreCase(taskSourceHeader) ? TaskService.SOURCE_OPENAPI : null);
+                               @RequestHeader(value = "X-Task-Source", required = false) String taskSourceHeader,
+                               @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        Task task = idempotencyService.createIdempotent(
+                idempotencyKey,
+                AuthContext.getUserId(),
+                () -> taskService.create(
+                        (String) body.get("title"),
+                        (String) body.get("description"),
+                        (String) body.get("taskType"),
+                        (String) body.get("priority"),
+                        Long.valueOf(String.valueOf(body.get("assigneeId"))),
+                        body.get("dueAt") == null ? null : OffsetDateTime.parse((String) body.get("dueAt")),
+                        body.get("parentId") == null ? null : Long.valueOf(String.valueOf(body.get("parentId"))),
+                        "openapi".equalsIgnoreCase(taskSourceHeader) ? TaskService.SOURCE_OPENAPI : null),
+                taskService::findForIdempotentReplay);
         return Result.ok(task);
     }
 

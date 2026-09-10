@@ -269,6 +269,21 @@ public class TaskService {
                 .plusDays(3).atTime(18, 0).atOffset(ZoneOffset.ofHours(8));
     }
 
+    /**
+     * 幂等重放读取：按 id 取任务实体（不做可见性过滤）。
+     *
+     * <p>仅供 {@link IdempotencyService} 回放已建单结果使用：幂等记录键形如
+     * {@code task:idem:{userId}:{sha256(Key)}}，只有携带同一 Key 的同一用户本人才能命中，
+     * 而记录里的任务必是该用户自己创建的，因此无需再走 {@link #mustVisible} 的可见性判断
+     * （可见性规则随角色权限矩阵变化，不应让重放结果与首次响应产生差异）。</p>
+     *
+     * @param id 首次创建记录的任务 id
+     * @return 任务实体；任务已被删除时返回 null（由调用方转 1002）
+     */
+    public Task findForIdempotentReplay(Long id) {
+        return id == null ? null : taskMapper.selectById(id);
+    }
+
     // ==================== 用户快照（姓名/部门解析） ====================
 
     /**

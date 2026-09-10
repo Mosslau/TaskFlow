@@ -78,6 +78,10 @@ public class ApiKeyAuthFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
+        // M7：Actuator 探针/指标端点不鉴权，直连放行（即使误带 X-API-Key 也不做校验）
+        if (isActuatorPath(request)) {
+            return chain.filter(exchange);
+        }
         String apiKey = request.getHeaders().getFirst(API_KEY_HEADER);
         if (apiKey == null || apiKey.isBlank()) {
             // 非 API Key 请求：交给 JwtAuthFilter 处理
@@ -191,10 +195,18 @@ public class ApiKeyAuthFilter implements GlobalFilter, Ordered {
     }
 
     /**
+     * 是否 Actuator 端点（M7 可观测性）：/actuator/** 一律放行，不鉴权（Prometheus 抓取与容器探针直连）。
+     */
+    private static boolean isActuatorPath(ServerHttpRequest request) {
+        return request.getPath().value().startsWith("/actuator/");
+    }
+
+    /**
      * 过滤器顺序：先于 JwtAuthFilter 执行，决定是否接管 X-API-Key 请求。
      */
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        // M7：从 HIGHEST_PRECEDENCE 后移一位，把最前位置让给 TraceIdFilter（链路标识必须最先注入）
+        return Ordered.HIGHEST_PRECEDENCE + 1;
     }
 }

@@ -199,9 +199,21 @@ task-service 业务事务 ──写──▶ event_outbox ──定时投递(2s)
 
 > 生产上线前必改:JWT_SECRET、数据库/Redis/RabbitMQ/SMTP 口令,并开启 HTTPS —— 详见 [docs/安全核查清单.md](docs/安全核查清单.md)。
 
+## 7.5 可观测性
+
+| 能力 | 现状 |
+|---|---|
+| 健康检查/探针 | 五服务 `/actuator/health`(+ `/health/readiness` `/health/liveness`),`/actuator/**` 白名单放行 |
+| 指标 | `micrometer-registry-prometheus`,抓取端点 `/actuator/prometheus`(含 `application` 标签) |
+| 链路追踪 | 网关生成/透传 `X-Trace-Id`,下游 MDC 注入,日志 pattern 输出 `[traceId]`,跨服务可 grep 串联 |
+| 日志 | 五服务统一 `logback-spring.xml`:控制台+文件双输出、按天滚动 30 天、`totalSizeCap=1GB` |
+| 配置管理 | Nacos 配置中心(共享 + 专属 dataId,热刷新) |
+
+> 尚未接入:Prometheus/Grafana 实际部署、分布式追踪后端(Jaeger/OTel)、告警规则。详见 [docs/可观测性与配置中心.md](docs/可观测性与配置中心.md)。
+
 ## 8. 技术栈
 
-**后端**:Java 17 · Spring Boot 3.3.5 · Spring Cloud 2023.0.3 · Spring Cloud Alibaba 2023.0.1.0 · Spring Cloud Gateway(WebFlux)· OpenFeign + LoadBalancer · Spring AMQP · Spring Data Redis · Spring Mail · Spring Scheduling/事务 · MyBatis-Plus 3.5.7 · Flyway 10 · JJWT 0.12.6 · Apache POI 5.3.0 · PostgreSQL 18 · RabbitMQ 3 · Redis 7 · Nacos
+**后端**:Java 17 · Spring Boot 3.3.5 · Spring Cloud 2023.0.3 · Spring Cloud Alibaba 2023.0.1.0 · Spring Cloud Gateway(WebFlux)· OpenFeign + LoadBalancer · Spring AMQP · Spring Data Redis · Spring Mail · Spring Scheduling/事务 · Actuator + Micrometer(Prometheus)· MyBatis-Plus 3.5.7 · Flyway 10 · JJWT 0.12.6 · Apache POI 5.3.0 · PostgreSQL 18 · RabbitMQ 3 · Redis 7 · Nacos(注册发现 + 配置中心)
 
 **前端**:Vue 3.5 · TypeScript 5.9 · Vite 5 · Element Plus 2.14 · Pinia 2 · Vue Router 4 · ECharts 5 · Sass
 
@@ -308,6 +320,10 @@ docker compose up -d --build  # 起 PG/Redis/RabbitMQ/Nacos + 5 服务 + Nginx(�
 
 > 密钥只经环境变量注入,代码库与镜像内不含任何真实凭据。
 
+### Nacos 配置中心(已落地)
+
+五个服务通过 `spring.config.import` 拉取两条可选配置:`taskflow-common.yaml`(共享:限流配额、日志级别)与 `${spring.application.name}.yaml`(服务专属),**支持运行时热刷新**(`@RefreshScope`,实测改配额即生效)。密钥类配置仍走环境变量。详见 [docs/可观测性与配置中心.md](docs/可观测性与配置中心.md)。
+
 ## 13. 接口约定
 
 - **前缀路由**:`/auth/api/v1/**` → auth;`/task/api/v1/**` → task;`/notification/api/v1/**` → notification;`/stats/api/v1/**` → stats
@@ -316,6 +332,7 @@ docker compose up -d --build  # 起 PG/Redis/RabbitMQ/Nacos + 5 服务 + Nginx(�
 - **HTTP 语义**:参数与业务错误 400、未认证 401、无权限 403、不存在 404;不使用"200 包一切"
 - **时间**:ISO 8601 UTC,前端按东八区渲染;资源路径用内部 id(`taskNo` 仅展示与搜索)
 - 共 47 个接口(任务域 32、认证与用户域 18、通知 4、统计 1 等分域编号)
+- **幂等**:`POST /task/api/v1/tasks` 支持可选 `Idempotency-Key`(同用户+Key 24h 内只建一条,并发超时 409/2014,详见 [可观测性与配置中心](docs/可观测性与配置中心.md))
 
 ## 14. 测试与验收
 
@@ -353,7 +370,7 @@ mvn install -pl tests/acceptance -Dmaven.repo.local=$PWD/.m2/repository \
 |---|---|
 | 需求与设计 | [PRD](docs/PRD-任务管理系统-v1.0.md) · [架构设计](docs/架构设计文档-v1.0.md) · [库表设计](docs/库表设计文档-v1.0.md) · [接口设计](docs/接口设计文档-v1.0.md) · [UI 设计规范](docs/UI设计规范-v1.0.md) · [实施计划](docs/实施计划-v1.0.md) |
 | 里程碑报告 | [M0](docs/里程碑-M0-工程脚手架.md) · [M1](docs/里程碑-M1-认证与用户域.md) · [M2](docs/里程碑-M2-任务核心.md) · [M3](docs/里程碑-M3-通知与事件链路.md) · [M4](docs/里程碑-M4-任务扩展.md) · [M5](docs/里程碑-M5-统计与定时任务.md) · [M6](docs/里程碑-M6-联调验收与上线.md) · [M6.1 验收](docs/里程碑-M6.1-验收报告.md) · [M6 性能](docs/里程碑-M6-性能报告.md) |
-| 运维与上线 | [本地中间件](docs/本地中间件.md) · [安全核查清单](docs/安全核查清单.md) · [上线手册](docs/上线手册.md) · [deploy/README](deploy/README.md) |
+| 运维与上线 | [可观测性与配置中心](docs/可观测性与配置中心.md) · [本地中间件](docs/本地中间件.md) · [安全核查清单](docs/安全核查清单.md) · [上线手册](docs/上线手册.md) · [deploy/README](deploy/README.md) |
 | 现状与质量 | [项目现状](docs/项目现状.md) · [人工走查清单](docs/人工走查清单.md) · [前端 UI 走查报告](docs/前端UI走查报告.md) |
 | 原型 | [可交互原型](docs/任务管理系统原型.html) · [关键页高保真](docs/ui/) |
 
@@ -366,7 +383,7 @@ mvn install -pl tests/acceptance -Dmaven.repo.local=$PWD/.m2/repository \
 3. **部署未真机演练**:Compose 未实际 `up`,备份恢复未演练
 4. **SMTP 未配置**:邮件通道不可用(失败仅记 `mail_record` + 一条系统告警)
 5. **单实例无高可用**:Nacos standalone、PG/Redis/Rabbit 单机
-6. **无可观测性**:未接 Actuator/Prometheus/Tracing,排障依赖日志
+6. **可观测性已补齐基础面**(Actuator/Prometheus/traceId/统一日志/Nacos Config);仍缺 Prometheus-Grafana 实际部署与追踪后端、告警规则
 7. 统计部分口径按库表设计简化(P0、趋势 completed);转派完成态任务的负载漂移靠 `rebuild` 兜底
 8. 历史遗留:压测/验收产生的测试账号与旧 `mail.failed` 记录待整理
 
@@ -374,7 +391,7 @@ mvn install -pl tests/acceptance -Dmaven.repo.local=$PWD/.m2/repository \
 
 1. **1 天**:GitHub Actions(编译 + 验收套件 + 前端构建);清理测试账号;配置真 SMTP
 2. **3 天**:备份恢复演练 + Compose 真机跑通 + HTTPS + 生产密钥注入
-3. **1 周**:关键 Service 单测补齐;Actuator + Prometheus 看板;网关注入 traceId 贯穿日志
+3. **1 周**:关键 Service 单测补齐;部署 Prometheus + Grafana 看板与告警规则;接入 OTel/Jaeger 追踪后端
 4. **2 周+**:服务多副本与中间件高可用、权限缓存模型重构、统计口径与 PRD 完全对齐
 
 ---

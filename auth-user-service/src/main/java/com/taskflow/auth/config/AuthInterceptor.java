@@ -32,6 +32,10 @@ public class AuthInterceptor implements HandlerInterceptor {
             "/auth/api/v1/api-keys/validate"
     );
 
+    /** 探针白名单前缀（M7）：Actuator 的 health/prometheus/info 端点不鉴权，
+     *  供 Prometheus 抓取与容器探针直连调用（网关侧同样放行 /actuator/**） */
+    private static final String ACTUATOR_PREFIX = "/actuator/";
+
     /** 权限点查询（带 Redis 缓存） */
     private final PermissionService permissionService;
 
@@ -51,7 +55,8 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
         String path = request.getRequestURI();
-        if (WHITELIST.contains(path)) {
+        // 白名单命中或 Actuator 探针端点：直接放行，不做身份校验
+        if (WHITELIST.contains(path) || path.startsWith(ACTUATOR_PREFIX)) {
             return true;
         }
 
