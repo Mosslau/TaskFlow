@@ -371,7 +371,7 @@ mvn install -pl tests/acceptance -Dmaven.repo.local=$PWD/.m2/repository \
 | 需求与设计 | [PRD](docs/PRD-任务管理系统-v1.0.md) · [架构设计](docs/架构设计文档-v1.0.md) · [库表设计](docs/库表设计文档-v1.0.md) · [接口设计](docs/接口设计文档-v1.0.md) · [UI 设计规范](docs/UI设计规范-v1.0.md) · [实施计划](docs/实施计划-v1.0.md) |
 | 里程碑报告 | [M0](docs/里程碑-M0-工程脚手架.md) · [M1](docs/里程碑-M1-认证与用户域.md) · [M2](docs/里程碑-M2-任务核心.md) · [M3](docs/里程碑-M3-通知与事件链路.md) · [M4](docs/里程碑-M4-任务扩展.md) · [M5](docs/里程碑-M5-统计与定时任务.md) · [M6](docs/里程碑-M6-联调验收与上线.md) · [M6.1 验收](docs/里程碑-M6.1-验收报告.md) · [M6 性能](docs/里程碑-M6-性能报告.md) |
 | 运维与上线 | [可观测性与配置中心](docs/可观测性与配置中心.md) · [本地中间件](docs/本地中间件.md) · [安全核查清单](docs/安全核查清单.md) · [上线手册](docs/上线手册.md) · [deploy/README](deploy/README.md) |
-| 现状与质量 | [项目现状](docs/项目现状.md) · [人工走查清单](docs/人工走查清单.md) · [前端 UI 走查报告](docs/前端UI走查报告.md) |
+| 规划与评估 | [企业级能力对照与演进路线](docs/企业级能力对照与演进路线.md) · [项目现状](docs/项目现状.md) · [人工走查清单](docs/人工走查清单.md) · [前端 UI 走查报告](docs/前端UI走查报告.md) |
 | 原型 | [可交互原型](docs/任务管理系统原型.html) · [关键页高保真](docs/ui/) |
 
 ## 17. 已知限制与演进方向
