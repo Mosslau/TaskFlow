@@ -57,6 +57,13 @@ public class StatsAggregateService {
     /** 完成状态集合（完成时长/按时率口径：已完成与已归档，PRD 4.3.2） */
     private static final Set<String> COMPLETED = Set.of("done", "close");
 
+    /**
+     * 已知状态全集。消费者防御用：事件里的 fromStatus/toStatus 必须落在该集合内才计算增量，
+     * 否则跳过并告警——历史上 task-service 曾以伪状态 "progress" 发事件，导致 from 侧减 0、
+     * to 侧 doing 单边 +1，每点一次「更新进度」就多算 1（2026-09-11 修复）。
+     */
+    private static final Set<String> KNOWN_STATUSES = Set.of("new", "doing", "wait", "done", "close");
+
     /** rebuild 分页拉取大小 */
     private static final int REBUILD_PAGE_SIZE = 1000;
 
@@ -117,6 +124,16 @@ public class StatsAggregateService {
     public void onStatusChanged(Map<String, Object> p) {
         String from = str(p.get("fromStatus"));
         String to = str(p.get("toStatus"));
+        // 消费者防御（2026-09-11）：状态没变就不该产生任何统计增量；未知状态（含历史伪状态
+        // "progress"）一律跳过并告警，避免 statusBucket 对未知状态返回全 0 造成 to 侧单边 +1。
+        if (from.equals(to)) {
+            log.debug("状态未变化，跳过统计增量: taskNo={}, status={}", p.get("taskNo"), to);
+            return;
+        }
+        if (!KNOWN_STATUSES.contains(from) || !KNOWN_STATUSES.contains(to)) {
+            log.warn("未知任务状态，跳过统计增量: from={}, to={}, taskNo={}", from, to, p.get("taskNo"));
+            return;
+        }
         if (isTopLevel(p)) {
             LocalDate date = dateOf(str(p.get("createdAt")), LocalDate.now(ZONE));
             long[] fromBucket = statusBucket(from, -1);

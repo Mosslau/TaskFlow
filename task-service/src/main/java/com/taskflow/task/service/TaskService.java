@@ -734,6 +734,8 @@ public class TaskService {
             throw new BizException(ErrorCode.ILLEGAL_STATE_TRANSITION,
                     "当前状态不可更新进度", Map.of("currentStatus", task.getStatus(), "requiredStatus", "new/doing"));
         }
+        // 记录变更前的真实状态：纯进度更新不改变任务状态，也就不应产生状态迁移事件
+        String beforeStatus = task.getStatus();
         task.setProgress(progress);
         // 待办时更新进度视为受理（PRD 4.1.2 补充规则 2）
         if (ST_NEW.equals(task.getStatus())) {
@@ -743,7 +745,14 @@ public class TaskService {
         taskMapper.updateById(task);
         timeline(task.getId(), AuthContext.getUserId(), "更新进度",
                 "进度 " + progress + "%" + (StringUtils.hasText(note) ? "：" + note : ""));
-        writeOutbox(TaskEvents.TASK_STATUS_CHANGED, statusPayload(task, "progress"));
+        // 修复（2026-09-11）：原实现无条件以 fromStatus="progress" 发 status.changed，而
+        // "progress" 不在 stats 的状态桶（new/doing/wait/done/close）内，导致 from 侧减 0、
+        // to 侧 doing +1 —— 每点一次「更新进度」就把「进行中」与人员负载各多算 1；待办状态下
+        // 更会 new 桶不减、doing 桶加，同一任务被同时计入两个桶。现在只在状态真实迁移时发送，
+        // 且 fromStatus 使用真实前态。注意 task.status.changed 仅 stats 订阅，不影响通知链路。
+        if (!beforeStatus.equals(task.getStatus())) {
+            writeOutbox(TaskEvents.TASK_STATUS_CHANGED, statusPayload(task, beforeStatus));
+        }
         return task;
     }
 

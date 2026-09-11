@@ -1,11 +1,14 @@
 package com.taskflow.task.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.taskflow.common.BizException;
 import com.taskflow.common.ErrorCode;
 import com.taskflow.common.RedisUtils;
 import com.taskflow.task.client.UserClient;
 import com.taskflow.task.config.AuthContext;
+import com.taskflow.task.entity.EventOutbox;
 import com.taskflow.task.entity.Task;
 import com.taskflow.task.mapper.EventOutboxMapper;
 import com.taskflow.task.mapper.TaskAttachmentMapper;
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,6 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -185,5 +192,44 @@ class TaskServiceTest {
         taskService.updateProgress(2L, 30, "启动");
         assertEquals("doing", t.getStatus());
         assertEquals(30, t.getProgress());
+    }
+
+    @Test
+    @DisplayName("进行中更新进度：状态未变，不产生任何状态事件（修复 2026-09-11 统计重复计数）")
+    void progressOnDoingEmitsNoStatusEvent() {
+        asUser(3L, "taskAdmin", TASK_ADMIN_PERMS);
+        Task t = task(2L, "doing", 1L, 3L);
+        when(taskMapper.selectById(2L)).thenReturn(t);
+
+        taskService.updateProgress(2L, 30, "推进");
+
+        assertEquals("doing", t.getStatus(), "状态不应被改变");
+        assertEquals(30, t.getProgress());
+        // 关键断言：状态没有真实迁移 → 不得写 outbox。
+        // 原实现无条件以 fromStatus="progress" 发 task.status.changed，而 stats 的状态桶
+        // 只认 new/doing/wait/done/close，导致 from 侧减 0、to 侧 doing +1 —— 每点一次
+        // 「更新进度」就把「进行中」与人员负载各多算 1。此断言即为该缺陷的回归守卫。
+        verify(outboxMapper, never()).insert(any(EventOutbox.class));
+    }
+
+    @Test
+    @DisplayName("待办更新进度：发出 fromStatus=new 的真实状态事件（而非伪状态 progress）")
+    void progressAutoAcceptEmitsRealFromStatus() throws Exception {
+        asUser(3L, "taskAdmin", TASK_ADMIN_PERMS);
+        Task t = task(2L, "new", 1L, 3L);
+        when(taskMapper.selectById(2L)).thenReturn(t);
+
+        taskService.updateProgress(2L, 30, "启动");
+        assertEquals("doing", t.getStatus(), "待办更新进度应自动受理为进行中");
+
+        ArgumentCaptor<EventOutbox> captor = ArgumentCaptor.forClass(EventOutbox.class);
+        verify(outboxMapper, times(1)).insert(captor.capture());
+        EventOutbox saved = captor.getValue();
+        assertEquals("task.status.changed", saved.getEventType());
+
+        JsonNode payload = new ObjectMapper().readTree(saved.getPayload()).get("payload");
+        assertEquals("new", payload.get("fromStatus").asText(),
+                "fromStatus 必须是真实前态，否则统计会产生单边增量");
+        assertEquals("doing", payload.get("toStatus").asText());
     }
 }
