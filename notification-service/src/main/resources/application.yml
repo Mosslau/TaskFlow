@@ -51,6 +51,9 @@ spring:
           auth: ${SMTP_AUTH:false}
           starttls:
             enable: ${SMTP_STARTTLS:false}
+          # 隐式 SSL（465/994 端口，QQ/163 常用）：开启后走 smtps 直连，与 STARTTLS 互斥
+          ssl:
+            enable: ${SMTP_SSL:false}
           # SMTP 超时（默认无限会卡死消费线程；M3 联调环境本机无 SMTP，快速失败进重试）
           connectiontimeout: ${SMTP_TIMEOUT:5000}
           timeout: ${SMTP_TIMEOUT:5000}

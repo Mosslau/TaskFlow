@@ -7,6 +7,17 @@ set -u
 cd "$(dirname "$0")"
 ROOT="$(pwd)"
 
+# ---------- 0. 加载项目根 .env（若存在）----------
+# 用于注入 SMTP 等环境变量；.env 已加入 .gitignore，凭据不入库。
+# set -a 让文件内所有赋值自动 export，供后续 mvn/java 子进程继承。
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+  set +a
+  echo "==> 已加载 $ROOT/.env"
+fi
+
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 export PATH="$JAVA_HOME/bin:$PATH"
 MVN_REPO="$ROOT/.m2/repository"
