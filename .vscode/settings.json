@@ -1,0 +1,12 @@
+{
+  // 关闭 Java 语言服务器自动编译（redhat.java，默认 true）。
+  //
+  // 原因：它会把 class 直接写进各模块的 target/classes，且不携带父 POM 配置的
+  // -parameters 编译参数，导致 @RequestParam / @PathVariable 未显式写 name 的接口
+  // 在运行时抛 "Name for argument of type [...] not specified" 并返回 500。
+  // 而 Maven 的增量编译会因 class 比源码新而跳过重编，坏产物会一直留在 target 里
+  // （2026-09-11 实测踩坑：统计总览接口 500）。
+  //
+  // 本项目的编译统一走 Maven：./start.sh（内部 spring-boot:run）或 mvn clean compile。
+  "java.autobuild.enabled": false
+}
