@@ -50,11 +50,11 @@ taskflow:
     # 与各服务同一密钥（生产走环境变量 JWT_SECRET）
     secret: ${JWT_SECRET:taskflow-dev-secret-please-override}
     ttl: PT2H
-  ratelimit:
-    # 网关级 Redis 限流（PRD 7.3 / M6.4）：JWT/API Key 请求按 X-User-Id，匿名按来源 IP
-    enabled: true
-    user-per-minute: 300
-    ip-per-minute: 600
+# 注意：taskflow.ratelimit.*（enabled / user-per-minute / ip-per-minute）不在本文件定义，
+# 由 Nacos 配置中心 dataId=taskflow-common.yaml 下发（网关级 Redis 限流，PRD 7.3 / M6.4）。
+# 原因：spring.config.import 导入的配置优先级 **低于** 本文件，本地一旦定义同名键就会把
+# Nacos 的值遮蔽掉，导致配置中心改了不生效（2026-09-11 实测踩坑，见 docs/可观测性与配置中心.md）。
+# RateLimitFilter 内的 @Value 默认值为 true / 300 / 600，Nacos 不可用时自动兜底。
 
 # 可观测性（M7）：Actuator 端点 + Micrometer Prometheus 指标导出
 management:
